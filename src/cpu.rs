@@ -33,6 +33,30 @@ impl ui::Visualisable for CPU {
     }
 }
 
+/// Flag offsets within the processor status register (`P`).
+enum StatusFlag {
+    Negative = 1 << 7,
+    Overflow = 1 << 6,
+    Unused = 1 << 5,
+    Break = 1 << 4,
+    DecimalMode = 1 << 3,
+    IrqDisable = 1 << 2,
+    Zero = 1 << 1,
+    Carry = 1 << 0,
+}
+
+/// Names of the processor status flags, required for iteration.
+static STATUS_FLAG_NAMES: &[(char, u8)] = &[
+    ('N', StatusFlag::Negative as u8),
+    ('V', StatusFlag::Overflow as u8),
+    (' ', StatusFlag::Unused as u8),
+    ('B', StatusFlag::Break as u8),
+    ('D', StatusFlag::DecimalMode as u8),
+    ('I', StatusFlag::IrqDisable as u8),
+    ('Z', StatusFlag::Zero as u8),
+    ('C', StatusFlag::Carry as u8),
+];
+
 /// The register file used by the 2A03, as defined on page 8 of the Ricoh R6500 datasheet.
 #[allow(non_snake_case)]
 struct RegisterFile {
@@ -73,6 +97,20 @@ impl RegisterFile {
             vis: RegisterFileVisualisation::default(),
         }
     }
+
+    /// Return whether the specified status flag in register `P` is set.
+    pub fn get_status_flag(&self, flag: StatusFlag) -> bool {
+        (self.P & flag as u8) != 0
+    }
+
+    /// Set the specified status flag in the processor status register.
+    pub fn set_status_flag(&mut self, flag: StatusFlag, set: bool) {
+        if set {
+            self.P |= flag as u8;
+        } else {
+            self.P &= !(flag as u8);
+        }
+    }
 }
 
 impl ui::Visualisable for RegisterFile {
@@ -102,6 +140,25 @@ impl ui::Visualisable for RegisterFile {
             }
         }
 
+        // Format the status flag display
+        fn format_status_flags(p_value: u8) -> String {
+            if p_value == 0 {
+                String::from("    (none set)")
+            } else {
+                let mut status_format = String::with_capacity(8);
+                status_format.push_str("    ");
+                // Build format string from members
+                for (i, (name, mask)) in STATUS_FLAG_NAMES.iter().enumerate() {
+                    if (p_value & *mask) != 0 {
+                        status_format.push(*name);
+                    } else {
+                        status_format.push(' ');
+                    }
+                }
+                status_format
+            }
+        }
+
         let base = self.vis.base;
         Window::new(im_str!("2A03 Registers"))
             .size([160.0, 185.0], Condition::Appearing)
@@ -116,7 +173,7 @@ impl ui::Visualisable for RegisterFile {
                 ui.text(format_register_value("S", self.S, 9, base));
                 ui.separator();
                 ui.text(format_register_value("P", self.P, 8, base));
-                ui.text(im_str!("    NV BDIZC"));
+                ui.text(format_status_flags(self.P));
                 ui.separator();
                 ComboBox::new(im_str!("Base")).build_simple_string(
                     ui,
