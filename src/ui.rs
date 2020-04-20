@@ -1,3 +1,4 @@
+use super::cpu;
 use glium::glutin::dpi::LogicalSize;
 use glium::glutin::event::{Event, WindowEvent};
 use glium::glutin::event_loop::{ControlFlow, EventLoop};
@@ -7,6 +8,8 @@ use glium::{Display, Surface};
 use imgui::{Context, Ui};
 use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::Instant;
 
 /// Factor into which to divide the hi-DPI scale factor for font scaling
@@ -125,18 +128,17 @@ impl NesUi {
     }
 
     /// Run the main loop for this UI instance.  Does not terminate.
-    pub fn run_loop() {
+    pub fn run_loop(cpu: Rc<RefCell<cpu::CPU>>) {
         let interface = NesUi::new();
         // Begin UI main loop
-        use imgui::*;
         interface.main_loop(move |_, ui| {
-            Window::new(im_str!("2A03 Registers"))
-                .size([160.0, 185.0], Condition::Appearing)
-                .position([10.0, 10.0], Condition::Appearing)
-                .resizable(false)
-                .build(ui, || {
-                    ui.text(im_str!("Hello nes_rs!"));
-                })
+            cpu.borrow_mut().display(ui);
         });
     }
+}
+
+/// A component that provides a visualisation in the UI.
+pub trait Visualisable {
+    /// Render the component's visualisation in the specified ImGui interface.
+    fn display(&mut self, ui: &Ui);
 }
