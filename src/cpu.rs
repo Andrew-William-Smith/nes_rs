@@ -1,7 +1,24 @@
+// Due to the way the instructions are encoded, there will always be a few unused arguments.
+#![allow(unused_variables)]
+
+use super::memory::Readable;
 use super::system_bus;
 use super::ui;
 use imgui::Ui;
 use std::fmt;
+
+/// A macro to quickly define instructions.
+macro_rules! ins {
+    ( $mnemonic:expr, $opcode:expr, $cycles:expr, $mode:ident, $operation:ident ) => {
+        Instruction {
+            mnemonic: $mnemonic,
+            opcode: $opcode,
+            cycles: $cycles,
+            addressing_mode: AddressingMode::$mode,
+            operation: CPU::$operation,
+        }
+    };
+}
 
 /// The value by which the 2A03 stack is offset from its actual contents.
 const STACK_OFFSET: u16 = 0x100;
@@ -19,6 +36,8 @@ pub struct CPU {
     cycle: u64,
     /// Whether execution is automatic or single-stepping is enabled.
     running: bool,
+    /// Whether the CPU is halted due to an error.
+    faulted: bool,
 }
 
 impl CPU {
@@ -30,6 +49,7 @@ impl CPU {
             cycles_remaining: 0,
             cycle: 0,
             running: false,
+            faulted: false,
         }
     }
 
@@ -37,41 +57,53 @@ impl CPU {
     pub fn load_rom(&mut self, rom_file: &String) {
         self.bus.load_rom(rom_file);
         // Set the program counter to the address in the reset vector
-        self.reg.PC = self.bus.read_reset_vector();
+        // TODO: Restore after nestest passes
+        // self.reg.PC = self.bus.read_reset_vector();
+        self.reg.PC = 0xC000;
     }
-}
 
-impl ui::Visualisable for CPU {
-    fn display(&mut self, ui: &Ui) {
-        use imgui::*;
-        Window::new(im_str!("CPU Status"))
-            .size([160.0, 170.0], Condition::Appearing)
-            .position([10.0, 205.0], Condition::Appearing)
-            .resizable(false)
-            .build(ui, || {
-                ui.text(format!("Cycle: {}", self.cycle));
-                ui.text(format!("Instr. cycles: {}", self.cycles_remaining));
-                ui.text(format!("Status:"));
-                ui.same_line(0.0);
-                if self.cycles_remaining == 0 {
-                    ui.text_colored([0.0, 1.0, 0.0, 1.0], "READY");
-                } else {
-                    ui.text_colored([1.0, 1.0, 0.0, 1.0], "WAITING");
-                }
-                ui.separator();
+    /// Perform the current operation for a single tick of the clock.  If a previous instruction has
+    /// not finished executing, the remaining cycles counter will be decremented but no other
+    /// operation will be performed.
+    fn step_cycle(&mut self) {
+        if self.cycles_remaining == 0 {
+            self.execute_instruction();
+        }
+        self.cycles_remaining -= 1;
+        self.cycle += 1;
+    }
 
-                ui.text(im_str!("Debugging controls"));
-                if self.running {
-                    ui.button(im_str!("Pause execution"), [145.0, 18.0]);
-                } else {
-                    ui.button(im_str!("Resume execution"), [145.0, 18.0]);
-                    ui.button(im_str!("Step cycle"), [145.0, 18.0]);
-                    ui.button(im_str!("Step instruction"), [145.0, 18.0]);
-                }
-            });
+    /// Kick off execution of the instruction pointed to by the current program counter.
+    fn execute_instruction(&mut self) {
+        // Ensure that the program counter points to a valid memory address
+        if let Some(opcode) = self.bus.read_byte(self.reg.PC) {
+            // Decode the instruction
+            self.reg.PC += 1;
+            let instruction: &Instruction = &INSTRUCTIONS[opcode as usize];
 
-        // Display subcomponents
-        self.reg.display(ui);
+            // Fetch the memory required to execute the instruction
+            if let Some(memory) = self.memory_fetch(&instruction.addressing_mode) {
+                // Execute the instruction and set its cycle count
+                (instruction.operation)(self, opcode, &memory);
+                self.cycles_remaining += instruction.cycles + memory.additional_cycles;
+            } else {
+                self.faulted = true;
+            }
+        } else {
+            self.faulted = true;
+        }
+    }
+
+    /// Fetch a byte from the memory address at the current program counter according to the
+    /// specified addressing mode.
+    fn memory_fetch(&mut self, addressing_mode: &AddressingMode) -> Option<FetchedMemory> {
+        match addressing_mode {
+            AddressingMode::Absolute => self.fetch_absolute(),
+            _ => {
+                self.faulted = true;
+                None
+            }
+        }
     }
 }
 
@@ -157,6 +189,373 @@ impl RegisterFile {
     /// Return the actual (non-offset) memory address referenced by the stack-pointer.
     pub fn stack_pointer_address(&self) -> u16 {
         self.S as u16 + STACK_OFFSET
+    }
+}
+
+/// A single 2A03 instruction and the information necessary to decode it.
+struct Instruction {
+    mnemonic: &'static str,
+    opcode: u8,
+    cycles: u8,
+    addressing_mode: AddressingMode,
+    operation: fn(&mut CPU, u8, &FetchedMemory),
+}
+
+/// A memory addressing mode supported by the 2A03.
+enum AddressingMode {
+    Accumulator,
+    Immediate,
+    Absolute,
+    ZeroPage,
+    IndexedZeroPageX,
+    IndexedZeroPageY,
+    IndexedAbsoluteX,
+    IndexedAbsoluteY,
+    Implied,
+    Relative,
+    IndexedIndirect,
+    IndirectIndexed,
+    AbsoluteIndirect,
+}
+
+/// Result of a memory fetch operation.
+struct FetchedMemory {
+    data: u8,
+    address: u16,
+    additional_cycles: u8,
+}
+
+/// List of all instructions provided by the 2A03.
+const INSTRUCTIONS: [Instruction; 256] = [
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("JMP", 0x4C, 3, Absolute, instruction_jmp),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute, unimplemented_instruction),
+];
+
+impl CPU {
+    /// Fetch two bytes at the current program counter, from which a full memory address is
+    /// constructed; this addressing mode allows access to the full memory range allowed by the
+    /// 2A03.  The single byte located at this address is returned.
+    fn fetch_absolute(&mut self) -> Option<FetchedMemory> {
+        let address = self.bus.read_word(self.reg.PC)?;
+        self.reg.PC += 2;
+        let data = self.bus.read_byte(address)?;
+        Some(FetchedMemory {
+            data,
+            address,
+            additional_cycles: 0,
+        })
+    }
+
+    /// `JMP` instruction.  Unconditionally branches to the specified memory address.
+    ///
+    /// Flags modified: *None*
+    fn instruction_jmp(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.reg.PC = fetched.address;
+    }
+
+    /// Halt on invalid instruction.
+    fn unimplemented_instruction(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        println!("Invalid instruction with opcode ${:02X}", opcode);
+        self.faulted = true;
+    }
+}
+
+impl ui::Visualisable for CPU {
+    fn display(&mut self, ui: &Ui) {
+        use imgui::*;
+        Window::new(im_str!("CPU Status"))
+            .size([160.0, 170.0], Condition::Appearing)
+            .position([10.0, 205.0], Condition::Appearing)
+            .resizable(false)
+            .build(ui, || {
+                ui.text(format!("Cycle: {}", self.cycle));
+                ui.text(format!("Instr. cycles: {}", self.cycles_remaining));
+                ui.text(format!("Status:"));
+                ui.same_line(0.0);
+                if self.faulted {
+                    ui.text_colored([1.0, 0.0, 0.0, 1.0], "FAULT");
+                } else if self.cycles_remaining == 0 {
+                    ui.text_colored([0.0, 1.0, 0.0, 1.0], "READY");
+                } else {
+                    ui.text_colored([1.0, 1.0, 0.0, 1.0], "WAITING");
+                }
+                ui.separator();
+
+                ui.text(im_str!("Debugging controls"));
+                if self.faulted {
+                    ui.text_colored([1.0, 0.0, 0.0, 1.0], "Fault occurred!");
+                    ui.text_colored([1.0, 0.0, 0.0, 1.0], "Execution halted.");
+                } else {
+                    if self.running {
+                        ui.button(im_str!("Pause execution"), [145.0, 18.0]);
+                    } else {
+                        ui.button(im_str!("Resume execution"), [145.0, 18.0]);
+
+                        if ui.button(im_str!("Step cycle"), [145.0, 18.0]) {
+                            self.step_cycle();
+                        }
+
+                        ui.button(im_str!("Step instruction"), [145.0, 18.0]);
+                    }
+                }
+            });
+
+        // Display subcomponents
+        self.reg.display(ui);
     }
 }
 
