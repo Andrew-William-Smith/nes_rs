@@ -89,7 +89,7 @@ impl CPU {
             self.reg.A,
             self.reg.X,
             self.reg.Y,
-            self.reg.P,
+            self.reg.P & 0xEF,
             self.reg.S,
             self.cycle + 7
         );
@@ -229,7 +229,7 @@ impl RegisterFile {
             X: 0,
             PC: 0,
             S: 0xFD,
-            P: 0x24,
+            P: 0x34,
             // Visualisation state
             vis: RegisterFileVisualisation::default(),
         }
@@ -299,7 +299,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("PHP", 0x08, 3, Implied,   instruction_php),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -332,7 +332,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("AND", 0x29, 2, Immediate, instruction_and),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -395,7 +395,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("PLA", 0x68, 4, Implied,   instruction_pla),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -411,7 +411,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("SEI", 0x78, 2, Implied,   instruction_sei),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -492,7 +492,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("CMP", 0xC9, 2, Immediate, instruction_cmp),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -539,7 +539,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("SED", 0xF8, 2, Implied,   instruction_sed),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -620,6 +620,24 @@ impl CPU {
         }
     }
 
+    /// Set the value-dependent flags (Negative and Zero) based on the specified value.
+    fn set_value_status(&mut self, value: u8) {
+        self.reg.set_status_flag(StatusFlag::Negative, (value & 0x80) != 0);
+        self.reg.set_status_flag(StatusFlag::Zero, value == 0);
+    }
+
+    /// `AND` instruction.  Performs a bitwise AND operation on the value in the accumulator and a
+    /// value from memory, storing the result in the accumulator.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_and(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let data = self.reg.A & fetched.data;
+        self.set_value_status(data);
+        self.reg.A = data;
+    }
+
     /// `BCC` instruction.  Branch to a relative memory address if the Carry flag is not set.
     ///
     /// Flags modified: *None*
@@ -694,6 +712,19 @@ impl CPU {
         self.reg.set_status_flag(StatusFlag::Carry, false);
     }
 
+    /// `CMP` instruction.  Compares the value in the accumulator with a value in memory by way of
+    /// subtraction.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Zero
+    fn instruction_cmp(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let difference = self.reg.A.wrapping_sub(fetched.data);
+        self.set_value_status(difference);
+        self.reg.set_status_flag(StatusFlag::Carry, self.reg.A >= fetched.data);
+    }
+
     /// `JMP` instruction.  Unconditionally branches to the specified memory address.
     ///
     /// Flags modified: *None*
@@ -718,9 +749,7 @@ impl CPU {
     fn instruction_lda(&mut self, opcode: u8, fetched: &FetchedMemory) {
         let data = fetched.data;
         self.reg.A = data;
-        self.reg
-            .set_status_flag(StatusFlag::Negative, (data & 0x80) != 0);
-        self.reg.set_status_flag(StatusFlag::Zero, data == 0);
+        self.set_value_status(data);
     }
 
     /// `LDX` instruction.  Loads a value into the X index register.
@@ -731,15 +760,31 @@ impl CPU {
     fn instruction_ldx(&mut self, opcode: u8, fetched: &FetchedMemory) {
         let data = fetched.data;
         self.reg.X = data;
-        self.reg
-            .set_status_flag(StatusFlag::Negative, (data & 0x80) != 0);
-        self.reg.set_status_flag(StatusFlag::Zero, data == 0);
+        self.set_value_status(data);
     }
 
     /// `NOP` instruction.  As the name implies, performs no operation.
     ///
     /// Flags modified: *None*
     fn instruction_nop(&mut self, opcode: u8, fetched: &FetchedMemory) {}
+
+    /// `PHP` instruction.  Push the processor status register (`P`) onto the stack.
+    ///
+    /// Flags modified: *None*
+    fn instruction_php(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.stack_push_byte(self.reg.P);
+    }
+
+    /// `PLA` instruction.  Pop the value at the top of the stack into the accumulator.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_pla(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let data = self.stack_pop_byte();
+        self.set_value_status(data);
+        self.reg.A = data;
+    }
 
     /// `RTS` instruction.  Return from subroutine.  Pops a 16-bit value off of the stack and jumps
     /// to the address it denotes.
@@ -754,6 +799,20 @@ impl CPU {
     /// Flags modified: Carry
     fn instruction_sec(&mut self, opcode: u8, fetched: &FetchedMemory) {
         self.reg.set_status_flag(StatusFlag::Carry, true);
+    }
+
+    /// `SED` instruction.  Sets the decimal mode flag high.
+    ///
+    /// Flags modified: Decimal
+    fn instruction_sed(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.reg.set_status_flag(StatusFlag::DecimalMode, true);
+    }
+
+    /// `SEI` instruction.  Sets the interrupt disable flag high.
+    ///
+    /// Flags modified: Interrupt disable
+    fn instruction_sei(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.reg.set_status_flag(StatusFlag::IrqDisable, true);
     }
 
     /// `STA` instruction.  Stores the accumulator into memory.
