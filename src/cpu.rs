@@ -1,3 +1,4 @@
+use super::system_bus;
 use super::ui;
 use imgui::Ui;
 use std::fmt;
@@ -10,10 +11,14 @@ const STACK_OFFSET: u16 = 0x100;
 pub struct CPU {
     /// The programmer-accessible registers in the 2A03.
     reg: RegisterFile,
+    /// The system bus, which handles all interaction with memory.
+    bus: system_bus::SystemBus,
     /// The number of cycles remaining in the current instruction.
     cycles_remaining: u8,
     /// The cycle count after startup or the last reset.
     cycle: u64,
+    /// Whether execution is automatic or single-stepping is enabled.
+    running: bool,
 }
 
 impl CPU {
@@ -21,14 +26,49 @@ impl CPU {
     pub fn new() -> CPU {
         CPU {
             reg: RegisterFile::new(),
+            bus: system_bus::SystemBus::new(),
             cycles_remaining: 0,
             cycle: 0,
+            running: false,
         }
+    }
+
+    /// Trigger a read of the specified ROM file on the system bus.
+    pub fn load_rom(&mut self, rom_file: &String) {
+        self.bus.load_rom(rom_file);
     }
 }
 
 impl ui::Visualisable for CPU {
     fn display(&mut self, ui: &Ui) {
+        use imgui::*;
+        Window::new(im_str!("CPU Status"))
+            .size([160.0, 170.0], Condition::Appearing)
+            .position([10.0, 205.0], Condition::Appearing)
+            .resizable(false)
+            .build(ui, || {
+                ui.text(format!("Cycle: {}", self.cycle));
+                ui.text(format!("Instr. cycles: {}", self.cycles_remaining));
+                ui.text(format!("Status:"));
+                ui.same_line(0.0);
+                if self.cycles_remaining == 0 {
+                    ui.text_colored([0.0, 1.0, 0.0, 1.0], "READY");
+                } else {
+                    ui.text_colored([1.0, 1.0, 0.0, 1.0], "WAITING");
+                }
+                ui.separator();
+
+                ui.text(im_str!("Debugging controls"));
+                if self.running {
+                    ui.button(im_str!("Pause execution"), [145.0, 18.0]);
+                } else {
+                    ui.button(im_str!("Resume execution"), [145.0, 18.0]);
+                    ui.button(im_str!("Step cycle"), [145.0, 18.0]);
+                    ui.button(im_str!("Step instruction"), [145.0, 18.0]);
+                }
+            });
+
+        // Display subcomponents
         self.reg.display(ui);
     }
 }
@@ -45,7 +85,7 @@ enum StatusFlag {
     Carry = 1 << 0,
 }
 
-/// Names of the processor status flags, required for iteration.
+/// Names and masks for the processor status flags, required for iteration.
 static STATUS_FLAG_NAMES: &[(char, u8)] = &[
     ('N', StatusFlag::Negative as u8),
     ('V', StatusFlag::Overflow as u8),
@@ -111,11 +151,17 @@ impl RegisterFile {
             self.P &= !(flag as u8);
         }
     }
+
+    /// Return the actual (non-offset) memory address referenced by the stack-pointer.
+    pub fn stack_pointer_address(&self) -> u16 {
+        self.S as u16 + STACK_OFFSET
+    }
 }
 
 impl ui::Visualisable for RegisterFile {
     fn display(&mut self, ui: &Ui) {
         use imgui::*;
+
         // Determine the base in which the number should be formatted
         fn format_register_value<
             T: Into<u64> + fmt::Binary + fmt::Octal + fmt::UpperHex + fmt::Display,
@@ -148,7 +194,7 @@ impl ui::Visualisable for RegisterFile {
                 let mut status_format = String::with_capacity(8);
                 status_format.push_str("    ");
                 // Build format string from members
-                for (i, (name, mask)) in STATUS_FLAG_NAMES.iter().enumerate() {
+                for (name, mask) in STATUS_FLAG_NAMES.iter() {
                     if (p_value & *mask) != 0 {
                         status_format.push(*name);
                     } else {
@@ -160,7 +206,7 @@ impl ui::Visualisable for RegisterFile {
         }
 
         let base = self.vis.base;
-        Window::new(im_str!("2A03 Registers"))
+        Window::new(im_str!("CPU Registers"))
             .size([160.0, 185.0], Condition::Appearing)
             .position([10.0, 10.0], Condition::Appearing)
             .resizable(false)
@@ -169,12 +215,16 @@ impl ui::Visualisable for RegisterFile {
                 ui.text(format_register_value("Y", self.Y, 8, base));
                 ui.text(format_register_value("X", self.X, 8, base));
                 ui.separator();
+
                 ui.text(format_register_value("PC", self.PC, 16, base));
-                ui.text(format_register_value("S", self.S, 9, base));
+                let s_value = self.stack_pointer_address();
+                ui.text(format_register_value("S", s_value, 9, base));
                 ui.separator();
+
                 ui.text(format_register_value("P", self.P, 8, base));
                 ui.text(format_status_flags(self.P));
                 ui.separator();
+
                 ComboBox::new(im_str!("Base")).build_simple_string(
                     ui,
                     &mut self.vis.base,
