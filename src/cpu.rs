@@ -20,6 +20,15 @@ macro_rules! ins {
     };
 }
 
+/// Shorthand for swapping the values in two registers.
+macro_rules! swap_registers {
+    ( $cpu:ident, $source:expr, $dest:expr ) => {
+        let data = $source;
+        $cpu.set_value_status(data);
+        $dest = data;
+    };
+}
+
 /// The value by which the 2A03 stack is offset from its actual contents.
 const STACK_OFFSET: u16 = 0x100;
 
@@ -433,9 +442,9 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("STA", 0x85, 3, ZeroPage,  instruction_sta),
     ins!("STX", 0x86, 3, ZeroPage,  instruction_stx),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("DEY", 0x88, 2, Implied,   instruction_dey),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("TXA", 0x8A, 2, Implied,   instruction_txa),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -449,9 +458,9 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("TYA", 0x98, 2, Implied,   instruction_tya),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("TXS", 0x9A, 2, Implied,   instruction_tsx),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -465,9 +474,9 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("TAY", 0xA8, 2, Implied,   instruction_tay),
     ins!("LDA", 0xA9, 2, Immediate, instruction_lda),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("TAX", 0xAA, 2, Implied,   instruction_tax),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -483,7 +492,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("CLV", 0xB8, 2, Implied,   instruction_clv),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("TSX", 0xBA, 2, Implied,   instruction_tsx),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -497,9 +506,9 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("INY", 0xC8, 2, Implied,   instruction_iny),
     ins!("CMP", 0xC9, 2, Immediate, instruction_cmp),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("DEX", 0xCA, 2, Implied,   instruction_dex),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -529,7 +538,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("INX", 0xE8, 2, Implied,   instruction_inx),
     ins!("SBC", 0xE9, 2, Immediate, instruction_sbc),
     ins!("NOP", 0xEA, 2, Implied,   instruction_nop),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -771,7 +780,8 @@ impl CPU {
     fn perform_compare(&mut self, value1: u8, value2: u8) {
         let difference = value1.wrapping_sub(value2);
         self.set_value_status(difference);
-        self.reg.set_status_flag(StatusFlag::Carry, value1 >= value2);
+        self.reg
+            .set_status_flag(StatusFlag::Carry, value1 >= value2);
     }
 
     /// `CMP` instruction.  Compares the value in the accumulator with a value in memory by way of
@@ -807,6 +817,28 @@ impl CPU {
         self.perform_compare(self.reg.Y, fetched.data);
     }
 
+    /// `DEX` instruction.  Decrement the value in the X index register by 1.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_dex(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let difference = self.reg.X.wrapping_sub(1);
+        self.set_value_status(difference);
+        self.reg.X = difference;
+    }
+
+    /// `DEY` instruction.  Decrement the value in the Y index register by 1.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_dey(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let difference = self.reg.Y.wrapping_sub(1);
+        self.set_value_status(difference);
+        self.reg.Y = difference;
+    }
+
     /// `EOR` instruction.  Performs a bitwise exclusive OR (XOR) operation on the value in the
     /// accumulator and a value from memory, storing the result in the accumulator.
     ///
@@ -817,6 +849,28 @@ impl CPU {
         let data = self.reg.A ^ fetched.data;
         self.set_value_status(data);
         self.reg.A = data;
+    }
+
+    /// `INX` instruction.  Increment the value in the X index register by 1.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_inx(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let sum = self.reg.X.wrapping_add(1);
+        self.set_value_status(sum);
+        self.reg.X = sum;
+    }
+
+    /// `INY` instruction.  Increment the value in the Y index register by 1.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_iny(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let sum = self.reg.Y.wrapping_add(1);
+        self.set_value_status(sum);
+        self.reg.Y = sum;
     }
 
     /// `JMP` instruction.  Unconditionally branches to the specified memory address.
@@ -945,7 +999,8 @@ impl CPU {
         // Perform basic subtraction
         let difference = reg_a.wrapping_sub(operand).wrapping_sub(carry);
         self.set_value_status(difference as u8);
-        self.reg.set_status_flag(StatusFlag::Carry, difference <= 0xFF);
+        self.reg
+            .set_status_flag(StatusFlag::Carry, difference <= 0xFF);
         // Overflow flag
         let overflow = (((reg_a ^ operand) & 0x80) != 0) && (((reg_a ^ difference) & 0x80) != 0);
         self.reg.set_status_flag(StatusFlag::Overflow, overflow);
@@ -987,6 +1042,58 @@ impl CPU {
     /// Flags modified: *None*
     fn instruction_stx(&mut self, opcode: u8, fetched: &FetchedMemory) {
         self.bus.write_byte(fetched.address, self.reg.X);
+    }
+
+    /// `TAX` instruction.  Transfer the value in the accumulator into index register X.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_tax(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        swap_registers!(self, self.reg.A, self.reg.X);
+    }
+
+    /// `TAY` instruction.  Transfer the value in the accumulator into index register Y.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_tay(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        swap_registers!(self, self.reg.A, self.reg.Y);
+    }
+
+    /// `TSX` instruction.  Transfer the stack pointer into index register X.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_tsx(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        swap_registers!(self, self.reg.S, self.reg.X);
+    }
+
+    /// `TXA` instruction.  Transfer the value in index register X into the accumulator.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_txa(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        swap_registers!(self, self.reg.X, self.reg.A);
+    }
+
+    /// `TXS` instruction.  Transfer the value in index register X into the stack pointer.
+    ///
+    /// Flags modified: *None*
+    fn instruction_txs(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.reg.S = self.reg.X;
+    }
+
+    /// `TYA` instruction.  Transfer the value in index register Y into the accumulator.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_tya(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        swap_registers!(self, self.reg.Y, self.reg.A);
     }
 
     /// Halt on invalid instruction.
