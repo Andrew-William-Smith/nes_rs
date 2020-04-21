@@ -115,6 +115,18 @@ impl CPU {
             }
         }
     }
+
+    /// Push a single byte onto the stack, modifying the stack pointer.
+    fn stack_push_byte(&mut self, data: u8) {
+        self.bus.write_byte(self.reg.stack_pointer_address(), data);
+        self.reg.S -= 1;
+    }
+
+    /// Push two bytes onto the stack, modifying the stack pointer.
+    fn stack_push_word(&mut self, data: u16) {
+        self.stack_push_byte(((data >> 8) & 0xFF) as u8);
+        self.stack_push_byte((data & 0xFF) as u8);
+    }
 }
 
 /// Flag offsets within the processor status register (`P`).
@@ -269,7 +281,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("JSR", 0x20, 6, Absolute,  instruction_jsr),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -539,6 +551,15 @@ impl CPU {
     ///
     /// Flags modified: *None*
     fn instruction_jmp(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.reg.PC = fetched.address;
+    }
+
+    /// `JSR` instruction.  Unconditionally branches to the specified memory address, storing the
+    /// address of the next instruction onto the stack.
+    ///
+    /// Flags modified: *None*
+    fn instruction_jsr(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.stack_push_word(self.reg.PC + 2);
         self.reg.PC = fetched.address;
     }
 
