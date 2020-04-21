@@ -1,12 +1,11 @@
 // Due to the way the instructions are encoded, there will always be a few unused arguments.
 #![allow(unused_variables)]
 
-use super::memory::Readable;
+use super::memory::{Readable, Writable};
 use super::system_bus;
 use super::ui;
 use imgui::Ui;
 use std::fmt;
-use crate::memory::Writable;
 
 /// A macro to quickly define instructions.
 macro_rules! ins {
@@ -109,6 +108,11 @@ impl CPU {
             AddressingMode::Immediate => self.fetch_immediate(),
             AddressingMode::Absolute => self.fetch_absolute(),
             AddressingMode::ZeroPage => self.fetch_zero_page(),
+            AddressingMode::Implied => Some(FetchedMemory {
+                data: 0,
+                address: 0,
+                additional_cycles: 0,
+            }),
             _ => {
                 self.faulted = true;
                 None
@@ -248,6 +252,7 @@ struct FetchedMemory {
 }
 
 /// List of all instructions provided by the 2A03.
+#[rustfmt::skip]
 const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -305,7 +310,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("SEC", 0x38, 2, Implied,   instruction_sec),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -483,7 +488,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("NOP", 0xEA, 2, Implied,   instruction_nop),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -571,8 +576,21 @@ impl CPU {
     fn instruction_ldx(&mut self, opcode: u8, fetched: &FetchedMemory) {
         let data = fetched.data;
         self.reg.X = data;
-        self.reg.set_status_flag(StatusFlag::Negative, (data & 0x80) != 0);
+        self.reg
+            .set_status_flag(StatusFlag::Negative, (data & 0x80) != 0);
         self.reg.set_status_flag(StatusFlag::Zero, data == 0);
+    }
+
+    /// `NOP` instruction.  As the name implies, performs no operation.
+    ///
+    /// Flags modified: *None*
+    fn instruction_nop(&mut self, opcode: u8, fetched: &FetchedMemory) {}
+
+    /// `SEC` instruction.  Sets the carry flag high.
+    ///
+    /// Flags modified: Carry
+    fn instruction_sec(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.reg.set_status_flag(StatusFlag::Carry, true);
     }
 
     /// `STX` instruction.  Stores the X index register into memory.
