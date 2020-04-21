@@ -73,6 +73,13 @@ impl CPU {
         self.cycle += 1;
     }
 
+    /// Perform the current operation until it has finished executing.
+    fn step_instruction(&mut self) {
+        self.execute_instruction();
+        self.cycle += self.cycles_remaining as u64;
+        self.cycles_remaining = 0;
+    }
+
     /// Kick off execution of the instruction pointed to by the current program counter.
     fn execute_instruction(&mut self) {
         // Ensure that the program counter points to a valid memory address
@@ -85,7 +92,7 @@ impl CPU {
             if let Some(memory) = self.memory_fetch(&instruction.addressing_mode) {
                 // Execute the instruction and set its cycle count
                 (instruction.operation)(self, opcode, &memory);
-                self.cycles_remaining += instruction.cycles + memory.additional_cycles;
+                self.cycles_remaining = instruction.cycles + memory.additional_cycles;
             } else {
                 self.faulted = true;
             }
@@ -549,7 +556,9 @@ impl ui::Visualisable for CPU {
                             self.step_cycle();
                         }
 
-                        ui.button(im_str!("Step instruction"), [145.0, 18.0]);
+                        if ui.button(im_str!("Step instruction"), [145.0, 18.0]) {
+                            self.step_instruction();
+                        }
                     }
                 }
             });
