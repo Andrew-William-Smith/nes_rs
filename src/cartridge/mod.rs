@@ -1,5 +1,5 @@
 use super::memory;
-use std::fs::File;
+use std::fs;
 use std::io::{BufReader, Read};
 
 mod nrom;
@@ -35,8 +35,9 @@ pub trait Cartridge: memory::Readable {
 /// Initialise a cartridge with the ROM data stored in the specified file.
 pub fn new(rom_file: &String) -> impl Cartridge {
     // Open file for reading
-    let file = File::open(rom_file).expect("Unable to read the specified file.");
-    let mut reader = BufReader::new(file);
+    let file = fs::File::open(rom_file).expect("Unable to read the specified file.");
+    let file_meta = fs::metadata(rom_file).expect("Unable to read file metadata.");
+    let mut reader = BufReader::with_capacity(file_meta.len() as usize, file);
 
     // Confirm iNES magic string
     if !is_ines_rom(&mut reader) {
@@ -54,10 +55,8 @@ pub fn new(rom_file: &String) -> impl Cartridge {
     );
 
     // Read in ROM data
-    let prg_rom = read_prg_rom(
-        &mut reader,
-        metadata[INesMetadata::PrgRomPages as usize] as usize,
-    );
+    let num_prg_pages = metadata[INesMetadata::PrgRomPages as usize] as usize;
+    let prg_rom = read_prg_rom(&mut reader, num_prg_pages);
 
     // Construct a cartridge of the specified mapper
     match mapper {
@@ -68,7 +67,7 @@ pub fn new(rom_file: &String) -> impl Cartridge {
 
 /// Return whether the file handled by the specified reader is a valid iNES-format ROM by
 /// validating the magic string at the beginning of the file.
-fn is_ines_rom(reader: &mut BufReader<File>) -> bool {
+fn is_ines_rom(reader: &mut BufReader<fs::File>) -> bool {
     let mut buffer = [0; INES_MAGIC_STRING.len()];
     let mut magic_reader = reader.take(INES_MAGIC_STRING.len() as u64);
     magic_reader
@@ -80,7 +79,7 @@ fn is_ines_rom(reader: &mut BufReader<File>) -> bool {
 
 /// Read the iNES metadata from the file handled by the specified reader.  The file should
 /// already have been verified to be an iNES ROM.
-fn read_ines_metadata(reader: &mut BufReader<File>) -> [u8; INES_METADATA_BYTES] {
+fn read_ines_metadata(reader: &mut BufReader<fs::File>) -> [u8; INES_METADATA_BYTES] {
     let mut buffer = [0; INES_METADATA_BYTES];
     let mut meta_reader = reader.take(INES_METADATA_BYTES as u64);
     meta_reader
@@ -97,7 +96,7 @@ fn identify_mapper(high_byte: u8, low_byte: u8) -> u16 {
 
 /// Read the specified number of pages of PRG ROM into memory from the file controlled by the
 /// specified reader.
-fn read_prg_rom(reader: &mut BufReader<File>, pages: usize) -> Vec<u8> {
+fn read_prg_rom(reader: &mut BufReader<fs::File>, pages: usize) -> Vec<u8> {
     let mut rom = vec![0; pages * PRG_ROM_PAGE_SIZE];
     let mut rom_reader = reader.take((pages * PRG_ROM_PAGE_SIZE) as u64);
     rom_reader

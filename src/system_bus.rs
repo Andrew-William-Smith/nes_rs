@@ -1,5 +1,6 @@
 use super::cartridge;
 use super::memory;
+use crate::memory::Readable;
 
 /// Bytes of internal RAM available to the NES.
 const RAM_SIZE: usize = 0x0800;
@@ -7,6 +8,9 @@ const RAM_SIZE: usize = 0x0800;
 const RAM_MIRRORING_MASK: u16 = 0x07FF;
 /// Final address mapped to internal RAM, including mirrored addresses.
 const RAM_END_ADDRESS: u16 = 0x1FFF;
+
+/// Address (in cartridge memory) of the reset vector.
+const RESET_VECTOR_ADDRESS: u16 = 0xFFFC;
 
 /// The system bus of the NES, handling interaction between the CPU, PPU, APU, cartridge ROM, and
 /// other memories.
@@ -38,6 +42,12 @@ impl SystemBus {
     fn read_ram_byte(&self, address: u16) -> u8 {
         self.ram[(address & RAM_MIRRORING_MASK) as usize]
     }
+
+    /// Return the reset vector, the address to which the program counter is set when the CPU
+    /// resets.  The reset vector is read from the cartridge at address $FFFC.
+    pub fn read_reset_vector(&self) -> u16 {
+        self.read_word(RESET_VECTOR_ADDRESS).unwrap()
+    }
 }
 
 impl memory::Readable for SystemBus {
@@ -52,7 +62,7 @@ impl memory::Readable for SystemBus {
 
     fn read_word(&self, address: u16) -> Option<u16> {
         // Cannot read from the last byte of mirrored RAM
-        if address == (RAM_END_ADDRESS - 1) {
+        if address == RAM_END_ADDRESS {
             None
         } else {
             memory::read_word_simple(self, address)

@@ -36,6 +36,8 @@ impl CPU {
     /// Trigger a read of the specified ROM file on the system bus.
     pub fn load_rom(&mut self, rom_file: &String) {
         self.bus.load_rom(rom_file);
+        // Set the program counter to the address in the reset vector
+        self.reg.PC = self.bus.read_reset_vector();
     }
 }
 
