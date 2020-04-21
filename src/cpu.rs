@@ -370,7 +370,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("RTI", 0x40, 6, Implied,   instruction_rti),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -448,7 +448,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("STX", 0x8E, 4, Absolute,  instruction_stx),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("BCC", 0x90, 2, Relative,  instruction_bcc),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -460,7 +460,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("TYA", 0x98, 2, Implied,   instruction_tya),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("TXS", 0x9A, 2, Implied,   instruction_tsx),
+    ins!("TXS", 0x9A, 2, Implied,   instruction_txs),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -479,8 +479,8 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("TAX", 0xAA, 2, Implied,   instruction_tax),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("LDA", 0xAD, 4, Absolute,  instruction_lda),
+    ins!("LDX", 0xAE, 4, Absolute,  instruction_ldx),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("BCS", 0xB0, 2, Relative,  instruction_bcs),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -885,7 +885,7 @@ impl CPU {
     ///
     /// Flags modified: *None*
     fn instruction_jsr(&mut self, opcode: u8, fetched: &FetchedMemory) {
-        self.stack_push_word(self.reg.PC);
+        self.stack_push_word(self.reg.PC - 1);
         self.reg.PC = fetched.address;
     }
 
@@ -974,12 +974,24 @@ impl CPU {
         self.reg.set_status_flag(StatusFlag::Unused, true);
     }
 
+    /// `RTI` instruction.  Used to return from an interrupt, pops the status register and program
+    /// counter from the stack.
+    ///
+    /// Flags modified: All flags set from stack
+    fn instruction_rti(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        // Get status register from stack
+        self.reg.P = self.stack_pop_byte();
+        self.reg.set_status_flag(StatusFlag::Unused, true);
+        // Get the program counter
+        self.reg.PC = self.stack_pop_word();
+    }
+
     /// `RTS` instruction.  Return from subroutine.  Pops a 16-bit value off of the stack and jumps
     /// to the address it denotes.
     ///
     /// Flags modified: *None*
     fn instruction_rts(&mut self, opcode: u8, fetched: &FetchedMemory) {
-        self.reg.PC = self.stack_pop_word();
+        self.reg.PC = self.stack_pop_word() + 1;
     }
 
     /// `SBC` instruction.  Subtracts a value from memory from the value in the accumulator,
