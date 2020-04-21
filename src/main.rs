@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::env;
 use std::rc::Rc;
 
+mod cartridge;
 mod cpu;
 mod memory;
 mod system_bus;
