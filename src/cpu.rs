@@ -92,7 +92,7 @@ impl CPU {
             if let Some(memory) = self.memory_fetch(&instruction.addressing_mode) {
                 // Execute the instruction and set its cycle count
                 (instruction.operation)(self, opcode, &memory);
-                self.cycles_remaining = instruction.cycles + memory.additional_cycles;
+                self.cycles_remaining += instruction.cycles + memory.additional_cycles;
             } else {
                 self.faulted = true;
             }
@@ -113,6 +113,7 @@ impl CPU {
                 address: 0,
                 additional_cycles: 0,
             }),
+            AddressingMode::Relative => self.fetch_relative(),
             _ => {
                 self.faulted = true;
                 None
@@ -130,6 +131,11 @@ impl CPU {
     fn stack_push_word(&mut self, data: u16) {
         self.stack_push_byte(((data >> 8) & 0xFF) as u8);
         self.stack_push_byte((data & 0xFF) as u8);
+    }
+
+    /// Return whether both of the specified memory addresses are in the same 256-byte page.
+    fn same_pages(address1: u16, address2: u16) -> bool {
+        (address1 & 0xFF00) == (address2 & 0xFF00)
     }
 }
 
@@ -278,7 +284,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("CLC", 0x18, 2, Implied,   instruction_clc),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -398,7 +404,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("BCC", 0x90, 2, Relative,  instruction_bcc),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -423,14 +429,14 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("LDA", 0xA9, 2, Immediate, instruction_lda),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("BCS", 0xB0, 2, Relative,  instruction_bcs),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -494,7 +500,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("BEQ", 0xF0, 2, Relative,  instruction_beq),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -552,6 +558,65 @@ impl CPU {
         })
     }
 
+    /// Fetch a byte from memory using relative addressing, in which the current byte at the program
+    /// counter is interpreted as an 8-bit signed integer and added to the program counter to
+    /// determine the address from which to read.
+    fn fetch_relative(&mut self) -> Option<FetchedMemory> {
+        let offset = self.bus.read_byte(self.reg.PC)? as i8;
+        self.reg.PC += 1;
+        let address = ((self.reg.PC as i32) + (offset as i32)) as u16;
+        let data = self.bus.read_byte(address)?;
+        Some(FetchedMemory {
+            data,
+            address,
+            additional_cycles: 0,
+        })
+    }
+
+    /// Execute a conditional branch to the specified address, based on whether the specified status
+    /// flag is set to the specified value.
+    fn conditional_branch(&mut self, flag: StatusFlag, value: bool, address: u16) {
+        if self.reg.get_status_flag(flag) == value {
+            // Branch penalty of 1 cycle
+            self.cycles_remaining += 1;
+            if !CPU::same_pages(self.reg.PC, address) {
+                // Additional cycle penalty if the branch occurred to a different page
+                self.cycles_remaining += 1;
+            }
+
+            // Execute the branch
+            self.reg.PC = address;
+        }
+    }
+
+    /// `BCC` instruction.  Branch to a relative memory address if the Carry flag is not set.
+    ///
+    /// Flags modified: *None*
+    fn instruction_bcc(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.conditional_branch(StatusFlag::Carry, false, fetched.address);
+    }
+
+    /// `BCS` instruction.  Branch to a relative memory address if the Carry flag is set.
+    ///
+    /// Flags modified: *None*
+    fn instruction_bcs(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.conditional_branch(StatusFlag::Carry, true, fetched.address);
+    }
+
+    /// `BEQ` instruction.  Branch to a relative memory address if the Zero flag is set.
+    ///
+    /// Flags modified: *None*
+    fn instruction_beq(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.conditional_branch(StatusFlag::Zero, true, fetched.address);
+    }
+
+    /// `CLC` instruction.  Sets the carry flag low.
+    ///
+    /// Flags modified: Carry
+    fn instruction_clc(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.reg.set_status_flag(StatusFlag::Carry, false);
+    }
+
     /// `JMP` instruction.  Unconditionally branches to the specified memory address.
     ///
     /// Flags modified: *None*
@@ -566,6 +631,19 @@ impl CPU {
     fn instruction_jsr(&mut self, opcode: u8, fetched: &FetchedMemory) {
         self.stack_push_word(self.reg.PC + 2);
         self.reg.PC = fetched.address;
+    }
+
+    /// `LDA` instruction.  Loads a value into the accumulator.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_lda(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let data = fetched.data;
+        self.reg.A = data;
+        self.reg
+            .set_status_flag(StatusFlag::Negative, (data & 0x80) != 0);
+        self.reg.set_status_flag(StatusFlag::Zero, data == 0);
     }
 
     /// `LDX` instruction.  Loads a value into the X index register.
@@ -634,9 +712,13 @@ impl ui::Visualisable for CPU {
                     ui.text_colored([1.0, 0.0, 0.0, 1.0], "Execution halted.");
                 } else {
                     if self.running {
-                        ui.button(im_str!("Pause execution"), [145.0, 18.0]);
+                        if ui.button(im_str!("Pause execution"), [145.0, 18.0]) {
+                            self.running = false;
+                        }
                     } else {
-                        ui.button(im_str!("Resume execution"), [145.0, 18.0]);
+                        if ui.button(im_str!("Resume execution"), [145.0, 18.0]) {
+                            self.running = true;
+                        }
 
                         if ui.button(im_str!("Step cycle"), [145.0, 18.0]) {
                             self.step_cycle();
@@ -651,6 +733,11 @@ impl ui::Visualisable for CPU {
 
         // Display subcomponents
         self.reg.display(ui);
+
+        // Step CPU if the emulation is running
+        if self.running && !self.faulted {
+            self.step_cycle();
+        }
     }
 }
 
