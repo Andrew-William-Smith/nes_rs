@@ -82,6 +82,18 @@ impl CPU {
 
     /// Kick off execution of the instruction pointed to by the current program counter.
     fn execute_instruction(&mut self) {
+        // Print CPU status in nestest log format
+        println!(
+            "{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}",
+            self.reg.PC,
+            self.reg.A,
+            self.reg.X,
+            self.reg.Y,
+            self.reg.P,
+            self.reg.S,
+            self.cycle + 7
+        );
+
         // Ensure that the program counter points to a valid memory address
         if let Some(opcode) = self.bus.read_byte(self.reg.PC) {
             // Decode the instruction
@@ -198,7 +210,7 @@ impl RegisterFile {
             X: 0,
             PC: 0,
             S: 0xFD,
-            P: 0x34,
+            P: 0x24,
             // Visualisation state
             vis: RegisterFileVisualisation::default(),
         }
@@ -276,7 +288,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("BPL", 0x10, 2, Relative,  instruction_bpl),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -296,7 +308,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("BIT", 0x24, 3, ZeroPage,  instruction_bit),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -340,6 +352,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("BVC", 0x50, 2, Relative,  instruction_bvc),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -371,6 +384,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("BVS", 0x70, 2, Relative,  instruction_bvs),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -391,9 +405,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("STA", 0x85, 3, ZeroPage,  instruction_sta),
     ins!("STX", 0x86, 3, ZeroPage,  instruction_stx),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -468,7 +480,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("BNE", 0xD0, 2, Relative,  instruction_bne),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -610,6 +622,52 @@ impl CPU {
         self.conditional_branch(StatusFlag::Zero, true, fetched.address);
     }
 
+    /// `BIT` instruction.  Test bits in memory with accumulator.  Somewhat akin to a test-and-set
+    /// instruction, and can be used for I/O synchronisation.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    /// - Overflow
+    fn instruction_bit(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let operand = fetched.data;
+        // Bits 7 and 6 of operands are transferred to (N,V)
+        self.reg
+            .set_status_flag(StatusFlag::Negative, ((operand >> 7) & 1) == 1);
+        self.reg
+            .set_status_flag(StatusFlag::Overflow, ((operand >> 6) & 1) == 1);
+        self.reg
+            .set_status_flag(StatusFlag::Zero, (self.reg.A & operand) == 0);
+    }
+
+    /// `BNE` instruction.  Branch to a relative memory address if the Zero flag is not set.
+    ///
+    /// Flags modified: *None*
+    fn instruction_bne(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.conditional_branch(StatusFlag::Zero, false, fetched.address);
+    }
+
+    /// `BPL` instruction.  Branch to a relative memory address if the Negative flag is not set.
+    ///
+    /// Flags modified: *None*
+    fn instruction_bpl(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.conditional_branch(StatusFlag::Negative, false, fetched.address);
+    }
+
+    /// `BVC` instruction.  Branch to a relative memory address if the Overflow flag is not set.
+    ///
+    /// Flags modified: *None*
+    fn instruction_bvc(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.conditional_branch(StatusFlag::Overflow, false, fetched.address);
+    }
+
+    /// `BVS` instruction.  Branch to a relative memory address if the Overflow flag is set.
+    ///
+    /// Flags modified: *None*
+    fn instruction_bvs(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.conditional_branch(StatusFlag::Overflow, true, fetched.address);
+    }
+
     /// `CLC` instruction.  Sets the carry flag low.
     ///
     /// Flags modified: Carry
@@ -669,6 +727,13 @@ impl CPU {
     /// Flags modified: Carry
     fn instruction_sec(&mut self, opcode: u8, fetched: &FetchedMemory) {
         self.reg.set_status_flag(StatusFlag::Carry, true);
+    }
+
+    /// `STA` instruction.  Stores the accumulator into memory.
+    ///
+    /// Flags modified: *None*
+    fn instruction_sta(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.bus.write_byte(fetched.address, self.reg.A);
     }
 
     /// `STX` instruction.  Stores the X index register into memory.
@@ -736,7 +801,7 @@ impl ui::Visualisable for CPU {
 
         // Step CPU if the emulation is running
         if self.running && !self.faulted {
-            self.step_cycle();
+            self.step_instruction();
         }
     }
 }
