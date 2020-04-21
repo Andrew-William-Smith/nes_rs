@@ -1,3 +1,4 @@
+use super::memory;
 use crate::cartridge::Cartridge;
 
 const NROM_MAPPER_NUMBER: u16 = 0;
@@ -59,9 +60,6 @@ impl super::memory::Readable for NromCartridge {
     }
 
     fn read_word(&self, address: u16) -> Option<u16> {
-        // Little-endian integrals
-        let low_byte: u16 = self.read_byte(address)? as u16;
-        let high_byte: u16 = (self.read_byte(address + 1)? as u16) << 8;
-        Some(high_byte | low_byte)
+        memory::read_word_simple(self, address)
     }
 }

@@ -17,3 +17,12 @@ pub trait Writable {
     /// indicate a successful write.
     fn write_byte(&mut self, address: u16, data: u8) -> bool;
 }
+
+/// A simple helper to be used in implementing `Readable::read_word`, which fetches two bytes from
+/// the specified source at the specified address and constructs a 16-bit value from them.
+pub fn read_word_simple<T: Readable>(source: &T, address: u16) -> Option<u16> {
+    // Little-endian integrals
+    let low_byte: u16 = source.read_byte(address)? as u16;
+    let high_byte: u16 = (source.read_byte(address + 1)? as u16) << 8;
+    Some(high_byte | low_byte)
+}
