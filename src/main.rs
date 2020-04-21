@@ -15,6 +15,12 @@ fn main() {
         let mut nes_cpu = cpu::CPU::new();
         nes_cpu.load_rom(&rom_file);
 
+        // Quickly run the ROM contents
+        // TODO: This should run in a separate thread and actually be clocked
+        while nes_cpu.is_running() {
+            nes_cpu.step_cycle();
+        }
+
         // Kick off UI rendering
         let cpu_cell = Rc::new(RefCell::new(nes_cpu));
         ui::NesUi::run_loop(cpu_cell);

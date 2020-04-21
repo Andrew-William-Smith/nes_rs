@@ -1,6 +1,6 @@
 use super::cartridge;
 use super::memory;
-use crate::memory::Readable;
+use super::memory::Readable;
 
 /// Bytes of internal RAM available to the NES.
 const RAM_SIZE: usize = 0x0800;
