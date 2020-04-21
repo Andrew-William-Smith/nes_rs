@@ -43,6 +43,13 @@ impl SystemBus {
         self.ram[(address & RAM_MIRRORING_MASK) as usize]
     }
 
+    /// Write the specified byte of data to RAM at the specified address.  The address may be
+    /// mirrored.
+    fn write_ram_byte(&mut self, address: u16, data: u8) -> bool {
+        self.ram[(address & RAM_MIRRORING_MASK) as usize] = data;
+        true
+    }
+
     /// Return the reset vector, the address to which the program counter is set when the CPU
     /// resets.  The reset vector is read from the cartridge at address $FFFC.
     pub fn read_reset_vector(&self) -> u16 {
@@ -66,6 +73,15 @@ impl memory::Readable for SystemBus {
             None
         } else {
             memory::read_word_simple(self, address)
+        }
+    }
+}
+
+impl memory::Writable for SystemBus {
+    fn write_byte(&mut self, address: u16, data: u8) -> bool {
+        match address {
+            0x0000..=RAM_END_ADDRESS => self.write_ram_byte(address, data),
+            _ => false,
         }
     }
 }

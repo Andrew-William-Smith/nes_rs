@@ -6,6 +6,7 @@ use super::system_bus;
 use super::ui;
 use imgui::Ui;
 use std::fmt;
+use crate::memory::Writable;
 
 /// A macro to quickly define instructions.
 macro_rules! ins {
@@ -107,6 +108,7 @@ impl CPU {
         match addressing_mode {
             AddressingMode::Immediate => self.fetch_immediate(),
             AddressingMode::Absolute => self.fetch_absolute(),
+            AddressingMode::ZeroPage => self.fetch_zero_page(),
             _ => {
                 self.faulted = true;
                 None
@@ -369,7 +371,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("STX", 0x86, 3, ZeroPage,  instruction_stx),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -519,6 +521,20 @@ impl CPU {
         })
     }
 
+    /// Fetch a byte from memory using zero-page addressing, which uses the current byte at the
+    /// program counter as the low byte of the memory address to fetch and sets the high byte to 0.
+    /// Thus, the range of accessible addresses is effectively limited to page 0.
+    fn fetch_zero_page(&mut self) -> Option<FetchedMemory> {
+        let address = self.bus.read_byte(self.reg.PC)?;
+        self.reg.PC += 1;
+        let data = self.bus.read_byte(address as u16)?;
+        Some(FetchedMemory {
+            data,
+            address: address as u16,
+            additional_cycles: 0,
+        })
+    }
+
     /// `JMP` instruction.  Unconditionally branches to the specified memory address.
     ///
     /// Flags modified: *None*
@@ -536,6 +552,13 @@ impl CPU {
         self.reg.X = data;
         self.reg.set_status_flag(StatusFlag::Negative, (data & 0x80) != 0);
         self.reg.set_status_flag(StatusFlag::Zero, data == 0);
+    }
+
+    /// `STX` instruction.  Stores the X index register into memory.
+    ///
+    /// Flags modified: *None*
+    fn instruction_stx(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.bus.write_byte(fetched.address, self.reg.X);
     }
 
     /// Halt on invalid instruction.
