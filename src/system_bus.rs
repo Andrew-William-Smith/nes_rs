@@ -8,13 +8,18 @@ const RAM_MIRRORING_MASK: u16 = 0x07FF;
 /// Final address mapped to internal RAM, including mirrored addresses.
 const RAM_END_ADDRESS: u16 = 0x1FFF;
 
+/// Starting address mapped to ROM.
+const ROM_START_ADDRESS: u16 = 0x8000;
+/// Final address mapped to ROM.
+const ROM_END_ADDRESS: u16 = 0xFFFF;
+
 /// The system bus of the NES, handling interaction between the CPU, PPU, APU, cartridge ROM, and
 /// other memories.
 pub struct SystemBus {
     /// Internal RAM.
     ram: Vec<u8>,
     /// The current cartridge connected to the system.
-    cartridge: Option<cartridge::Cartridge>,
+    cartridge: Option<Box<dyn cartridge::Cartridge>>,
 }
 
 impl SystemBus {
@@ -29,6 +34,6 @@ impl SystemBus {
     /// Read the specified ROM file into memory beginning at address `$8000`.
     pub fn load_rom(&mut self, rom_file: &String) {
         // "Insert" the cartridge described in the specified file
-        self.cartridge = Some(cartridge::Cartridge::new(rom_file));
+        self.cartridge = Some(Box::new(cartridge::new(rom_file)));
     }
 }
