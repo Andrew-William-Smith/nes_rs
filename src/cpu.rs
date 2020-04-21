@@ -457,7 +457,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("LDY", 0xA0, 2, Immediate, instruction_ldy),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("LDX", 0xA2, 2, Immediate, instruction_ldx),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -489,7 +489,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("CPY", 0xC0, 2, Immediate, instruction_cpy),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -521,6 +521,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("CPX", 0xE0, 2, Immediate, instruction_cpx),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -529,8 +530,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("SBC", 0xE9, 2, Immediate, instruction_sbc),
     ins!("NOP", 0xEA, 2, Implied,   instruction_nop),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -767,6 +767,13 @@ impl CPU {
         self.reg.set_status_flag(StatusFlag::Overflow, false);
     }
 
+    /// Perform a comparison operation upon the specified values, setting flags as necessary.
+    fn perform_compare(&mut self, value1: u8, value2: u8) {
+        let difference = value1.wrapping_sub(value2);
+        self.set_value_status(difference);
+        self.reg.set_status_flag(StatusFlag::Carry, value1 >= value2);
+    }
+
     /// `CMP` instruction.  Compares the value in the accumulator with a value in memory by way of
     /// subtraction.
     ///
@@ -775,10 +782,29 @@ impl CPU {
     /// - Negative
     /// - Zero
     fn instruction_cmp(&mut self, opcode: u8, fetched: &FetchedMemory) {
-        let difference = self.reg.A.wrapping_sub(fetched.data);
-        self.set_value_status(difference);
-        self.reg
-            .set_status_flag(StatusFlag::Carry, self.reg.A >= fetched.data);
+        self.perform_compare(self.reg.A, fetched.data);
+    }
+
+    /// `CPX` instruction.  Compares the value in index register X with a value in memory by way of
+    /// subtraction.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Zero
+    fn instruction_cpx(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.perform_compare(self.reg.X, fetched.data);
+    }
+
+    /// `CPY` instruction.  Compares the value in index register Y with a value in memory by way of
+    /// subtraction.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Zero
+    fn instruction_cpy(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.perform_compare(self.reg.Y, fetched.data);
     }
 
     /// `EOR` instruction.  Performs a bitwise exclusive OR (XOR) operation on the value in the
@@ -828,6 +854,17 @@ impl CPU {
     fn instruction_ldx(&mut self, opcode: u8, fetched: &FetchedMemory) {
         let data = fetched.data;
         self.reg.X = data;
+        self.set_value_status(data);
+    }
+
+    /// `LDY` instruction.  Loads a value into the Y index register.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_ldy(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let data = fetched.data;
+        self.reg.Y = data;
         self.set_value_status(data);
     }
 
@@ -889,6 +926,32 @@ impl CPU {
     /// Flags modified: *None*
     fn instruction_rts(&mut self, opcode: u8, fetched: &FetchedMemory) {
         self.reg.PC = self.stack_pop_word();
+    }
+
+    /// `SBC` instruction.  Subtracts a value from memory from the value in the accumulator,
+    /// borrowing a 1 in from the carry flag (1 - C).
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Overflow
+    /// - Zero
+    fn instruction_sbc(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        // Cast to 16 bits to allow inspection of carry
+        let reg_a = self.reg.A as u16;
+        let operand = fetched.data as u16;
+        let carry = !self.reg.get_status_flag(StatusFlag::Carry) as u16;
+
+        // Perform basic subtraction
+        let difference = reg_a.wrapping_sub(operand).wrapping_sub(carry);
+        self.set_value_status(difference as u8);
+        self.reg.set_status_flag(StatusFlag::Carry, difference <= 0xFF);
+        // Overflow flag
+        let overflow = (((reg_a ^ operand) & 0x80) != 0) && (((reg_a ^ difference) & 0x80) != 0);
+        self.reg.set_status_flag(StatusFlag::Overflow, overflow);
+
+        // Set the actual difference
+        self.reg.A = difference as u8;
     }
 
     /// `SEC` instruction.  Sets the carry flag high.
