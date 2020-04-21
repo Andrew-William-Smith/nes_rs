@@ -145,6 +145,25 @@ impl CPU {
         self.stack_push_byte((data & 0xFF) as u8);
     }
 
+    /// Pop a single byte off the stack, modifying the stack pointer.
+    fn stack_pop_byte(&mut self) -> u8 {
+        self.reg.S += 1;
+        match self.bus.read_byte(self.reg.stack_pointer_address()) {
+            Some(data) => data,
+            None => {
+                self.faulted = true;
+                0
+            }
+        }
+    }
+
+    /// Pop two bytes off of the stack, modifying the stack pointer.
+    fn stack_pop_word(&mut self) -> u16 {
+        let low_byte = self.stack_pop_byte();
+        let high_byte = self.stack_pop_byte();
+        ((high_byte as u16) << 8) | (low_byte as u16)
+    }
+
     /// Return whether both of the specified memory addresses are in the same 256-byte page.
     fn same_pages(address1: u16, address2: u16) -> bool {
         (address1 & 0xFF00) == (address2 & 0xFF00)
@@ -368,7 +387,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
+    ins!("RTS", 0x60, 6, Implied,   instruction_rts),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,  unimplemented_instruction),
@@ -687,7 +706,7 @@ impl CPU {
     ///
     /// Flags modified: *None*
     fn instruction_jsr(&mut self, opcode: u8, fetched: &FetchedMemory) {
-        self.stack_push_word(self.reg.PC + 2);
+        self.stack_push_word(self.reg.PC);
         self.reg.PC = fetched.address;
     }
 
@@ -721,6 +740,14 @@ impl CPU {
     ///
     /// Flags modified: *None*
     fn instruction_nop(&mut self, opcode: u8, fetched: &FetchedMemory) {}
+
+    /// `RTS` instruction.  Return from subroutine.  Pops a 16-bit value off of the stack and jumps
+    /// to the address it denotes.
+    ///
+    /// Flags modified: *None*
+    fn instruction_rts(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.reg.PC = self.stack_pop_word();
+    }
 
     /// `SEC` instruction.  Sets the carry flag high.
     ///
