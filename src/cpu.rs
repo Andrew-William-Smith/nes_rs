@@ -146,6 +146,7 @@ impl CPU {
                 additional_cycles: 0,
             }),
             AddressingMode::Relative => self.fetch_relative(),
+            AddressingMode::IndexedIndirect => self.fetch_indexed_indirect(),
             _ => {
                 self.faulted = true;
                 None
@@ -311,262 +312,262 @@ struct FetchedMemory {
 /// List of all instructions provided by the 2A03.
 #[rustfmt::skip]
 const INSTRUCTIONS: [Instruction; 256] = [
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("PHP", 0x08, 3, Implied,     instruction_php),
-    ins!("ORA", 0x09, 2, Immediate,   instruction_ora),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("BPL", 0x10, 2, Relative,    instruction_bpl),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("CLC", 0x18, 2, Implied,     instruction_clc),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("JSR", 0x20, 6, Absolute,    instruction_jsr),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("BIT", 0x24, 3, ZeroPage,    instruction_bit),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("PLP", 0x28, 4, Implied,     instruction_plp),
-    ins!("AND", 0x29, 2, Immediate,   instruction_and),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("BMI", 0x30, 2, Relative,    instruction_bmi),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("SEC", 0x38, 2, Implied,     instruction_sec),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("RTI", 0x40, 6, Implied,     instruction_rti),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("PHA", 0x48, 3, Implied,     instruction_pha),
-    ins!("EOR", 0x49, 2, Immediate,   instruction_eor),
-    ins!("LSR", 0x4A, 2, Accumulator, instruction_lsr),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("JMP", 0x4C, 3, Absolute,    instruction_jmp),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("BVC", 0x50, 2, Relative,    instruction_bvc),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("RTS", 0x60, 6, Implied,     instruction_rts),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("PLA", 0x68, 4, Implied,     instruction_pla),
-    ins!("ADC", 0x69, 2, Immediate,   instruction_adc),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("BVS", 0x70, 2, Relative,    instruction_bvs),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("SEI", 0x78, 2, Implied,     instruction_sei),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("STA", 0x85, 3, ZeroPage,    instruction_sta),
-    ins!("STX", 0x86, 3, ZeroPage,    instruction_stx),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("DEY", 0x88, 2, Implied,     instruction_dey),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("TXA", 0x8A, 2, Implied,     instruction_txa),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("STX", 0x8E, 4, Absolute,    instruction_stx),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("BCC", 0x90, 2, Relative,    instruction_bcc),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("TYA", 0x98, 2, Implied,     instruction_tya),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("TXS", 0x9A, 2, Implied,     instruction_txs),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("LDY", 0xA0, 2, Immediate,   instruction_ldy),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("LDX", 0xA2, 2, Immediate,   instruction_ldx),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("TAY", 0xA8, 2, Implied,     instruction_tay),
-    ins!("LDA", 0xA9, 2, Immediate,   instruction_lda),
-    ins!("TAX", 0xAA, 2, Implied,     instruction_tax),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("LDA", 0xAD, 4, Absolute,    instruction_lda),
-    ins!("LDX", 0xAE, 4, Absolute,    instruction_ldx),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("BCS", 0xB0, 2, Relative,    instruction_bcs),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("CLV", 0xB8, 2, Implied,     instruction_clv),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("TSX", 0xBA, 2, Implied,     instruction_tsx),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("CPY", 0xC0, 2, Immediate,   instruction_cpy),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("INY", 0xC8, 2, Implied,     instruction_iny),
-    ins!("CMP", 0xC9, 2, Immediate,   instruction_cmp),
-    ins!("DEX", 0xCA, 2, Implied,     instruction_dex),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("BNE", 0xD0, 2, Relative,    instruction_bne),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("CLD", 0xD8, 2, Implied,     instruction_cld),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("CPX", 0xE0, 2, Immediate,   instruction_cpx),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("INX", 0xE8, 2, Implied,     instruction_inx),
-    ins!("SBC", 0xE9, 2, Immediate,   instruction_sbc),
-    ins!("NOP", 0xEA, 2, Implied,     instruction_nop),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("BEQ", 0xF0, 2, Relative,    instruction_beq),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("SED", 0xF8, 2, Implied,     instruction_sed),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,    unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("ORA", 0x01, 6, IndexedIndirect, instruction_ora),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("ORA", 0x05, 3, ZeroPage,        instruction_ora),
+    ins!("ASL", 0x06, 5, ZeroPage,        instruction_asl),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("PHP", 0x08, 3, Implied,         instruction_php),
+    ins!("ORA", 0x09, 2, Immediate,       instruction_ora),
+    ins!("ASL", 0x0A, 2, Accumulator,     instruction_asl),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("BPL", 0x10, 2, Relative,        instruction_bpl),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("CLC", 0x18, 2, Implied,         instruction_clc),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("JSR", 0x20, 6, Absolute,        instruction_jsr),
+    ins!("AND", 0x21, 6, IndexedIndirect, instruction_and),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("BIT", 0x24, 3, ZeroPage,        instruction_bit),
+    ins!("AND", 0x25, 3, ZeroPage,        instruction_and),
+    ins!("ROL", 0x26, 5, ZeroPage,        instruction_rol),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("PLP", 0x28, 4, Implied,         instruction_plp),
+    ins!("AND", 0x29, 2, Immediate,       instruction_and),
+    ins!("ROL", 0x2A, 2, Accumulator,     instruction_rol),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("BMI", 0x30, 2, Relative,        instruction_bmi),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("SEC", 0x38, 2, Implied,         instruction_sec),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("RTI", 0x40, 6, Implied,         instruction_rti),
+    ins!("EOR", 0x41, 6, IndexedIndirect, instruction_eor),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("EOR", 0x45, 3, ZeroPage,        instruction_eor),
+    ins!("LSR", 0x46, 5, ZeroPage,        instruction_lsr),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("PHA", 0x48, 3, Implied,         instruction_pha),
+    ins!("EOR", 0x49, 2, Immediate,       instruction_eor),
+    ins!("LSR", 0x4A, 2, Accumulator,     instruction_lsr),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("JMP", 0x4C, 3, Absolute,        instruction_jmp),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("BVC", 0x50, 2, Relative,        instruction_bvc),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("RTS", 0x60, 6, Implied,         instruction_rts),
+    ins!("ADC", 0x61, 6, IndexedIndirect, instruction_adc),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("ADC", 0x65, 3, ZeroPage,        instruction_adc),
+    ins!("ROR", 0x66, 5, ZeroPage,        instruction_ror),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("PLA", 0x68, 4, Implied,         instruction_pla),
+    ins!("ADC", 0x69, 2, Immediate,       instruction_adc),
+    ins!("ROR", 0x6A, 2, Accumulator,     instruction_ror),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("BVS", 0x70, 2, Relative,        instruction_bvs),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("SEI", 0x78, 2, Implied,         instruction_sei),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("STA", 0x81, 6, IndexedIndirect, instruction_sta),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("STY", 0x84, 3, ZeroPage,        instruction_sty),
+    ins!("STA", 0x85, 3, ZeroPage,        instruction_sta),
+    ins!("STX", 0x86, 3, ZeroPage,        instruction_stx),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("DEY", 0x88, 2, Implied,         instruction_dey),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("TXA", 0x8A, 2, Implied,         instruction_txa),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("STA", 0x8D, 4, Absolute,        instruction_sta),
+    ins!("STX", 0x8E, 4, Absolute,        instruction_stx),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("BCC", 0x90, 2, Relative,        instruction_bcc),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("TYA", 0x98, 2, Implied,         instruction_tya),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("TXS", 0x9A, 2, Implied,         instruction_txs),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("LDY", 0xA0, 2, Immediate,       instruction_ldy),
+    ins!("LDA", 0xA1, 6, IndexedIndirect, instruction_lda),
+    ins!("LDX", 0xA2, 2, Immediate,       instruction_ldx),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("LDY", 0xA4, 3, ZeroPage,        instruction_ldy),
+    ins!("LDA", 0xA5, 3, ZeroPage,        instruction_lda),
+    ins!("LDX", 0xA6, 3, ZeroPage,        instruction_ldx),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("TAY", 0xA8, 2, Implied,         instruction_tay),
+    ins!("LDA", 0xA9, 2, Immediate,       instruction_lda),
+    ins!("TAX", 0xAA, 2, Implied,         instruction_tax),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("LDA", 0xAD, 4, Absolute,        instruction_lda),
+    ins!("LDX", 0xAE, 4, Absolute,        instruction_ldx),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("BCS", 0xB0, 2, Relative,        instruction_bcs),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("CLV", 0xB8, 2, Implied,         instruction_clv),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("TSX", 0xBA, 2, Implied,         instruction_tsx),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("CPY", 0xC0, 2, Immediate,       instruction_cpy),
+    ins!("CMP", 0xC1, 6, IndexedIndirect, instruction_cmp),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("CPY", 0xC4, 3, ZeroPage,        instruction_cpy),
+    ins!("CMP", 0xC5, 3, ZeroPage,        instruction_cmp),
+    ins!("DEC", 0xC6, 5, ZeroPage,        instruction_dec),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("INY", 0xC8, 2, Implied,         instruction_iny),
+    ins!("CMP", 0xC9, 2, Immediate,       instruction_cmp),
+    ins!("DEX", 0xCA, 2, Implied,         instruction_dex),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("BNE", 0xD0, 2, Relative,        instruction_bne),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("CLD", 0xD8, 2, Implied,         instruction_cld),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("CPX", 0xE0, 2, Immediate,       instruction_cpx),
+    ins!("SBC", 0xE1, 6, IndexedIndirect, instruction_sbc),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("CPX", 0xE4, 3, ZeroPage,        instruction_cpx),
+    ins!("SBC", 0xE5, 3, ZeroPage,        instruction_sbc),
+    ins!("INC", 0xE6, 5, ZeroPage,        instruction_inc),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("INX", 0xE8, 2, Implied,         instruction_inx),
+    ins!("SBC", 0xE9, 2, Immediate,       instruction_sbc),
+    ins!("NOP", 0xEA, 2, Implied,         instruction_nop),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("BEQ", 0xF0, 2, Relative,        instruction_beq),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("SED", 0xF8, 2, Implied,         instruction_sed),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
+    ins!("UUU", 0x00, 1, Absolute,        unimplemented_instruction),
 ];
 
 impl CPU {
@@ -616,6 +617,30 @@ impl CPU {
         let offset = self.bus.read_byte(self.reg.PC)? as i8;
         self.reg.PC += 1;
         let address = ((self.reg.PC as i32) + (offset as i32)) as u16;
+        let data = self.bus.read_byte(address)?;
+        Some(FetchedMemory {
+            data,
+            address,
+            additional_cycles: 0,
+        })
+    }
+
+    /// Fetch a byte from memory using indexed indirect addressing [(IND, X)], in which the current
+    /// byte at the program counter is added to index register X, the result of which is truncated
+    /// to a zero-page address from which two bytes may be fetched to find the memory address from
+    /// which to fetch data.
+    fn fetch_indexed_indirect(&mut self) -> Option<FetchedMemory> {
+        // Compute address of indirect address
+        let offset = self.bus.read_byte(self.reg.PC)? as i8;
+        self.reg.PC += 1;
+        let addr_address = ((self.reg.X as i32) + (offset as i32)) as u16;
+
+        // Simulate address wrap-around
+        let low_byte = self.bus.read_byte(addr_address & 0xFF)? as u16;
+        let high_byte = self.bus.read_byte(addr_address.wrapping_add(1) & 0xFF)? as u16;
+        let address = (high_byte << 8) | low_byte;
+
+        // Fetch the actual data
         let data = self.bus.read_byte(address)?;
         Some(FetchedMemory {
             data,
@@ -695,6 +720,22 @@ impl CPU {
         let data = self.reg.A & fetched.data;
         self.set_value_status(data);
         self.reg.A = data;
+    }
+
+    /// `ASL` instruction.  Perform an arithmetic shift one bit to the left on the operand.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Zero
+    fn instruction_asl(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        // Perform the shift
+        let shifted = fetched.data.wrapping_shl(1);
+        self.set_value_status(shifted);
+        self.reg
+            .set_status_flag(StatusFlag::Carry, (fetched.data & 0x80) != 0);
+
+        self.accumulator_write_back(opcode, shifted, fetched.address);
     }
 
     /// `BCC` instruction.  Branch to a relative memory address if the Carry flag is not set.
@@ -833,6 +874,17 @@ impl CPU {
         self.perform_compare(self.reg.Y, fetched.data);
     }
 
+    /// `DEC` instruction.  Decrement a value in memory by 1.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_dec(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let difference = fetched.data.wrapping_sub(1);
+        self.set_value_status(difference);
+        self.bus.write_byte(fetched.address, difference);
+    }
+
     /// `DEX` instruction.  Decrement the value in the X index register by 1.
     ///
     /// Flags modified:
@@ -865,6 +917,17 @@ impl CPU {
         let data = self.reg.A ^ fetched.data;
         self.set_value_status(data);
         self.reg.A = data;
+    }
+
+    /// `INC` instruction.  Increment a value in memory by 1.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_inc(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let sum = fetched.data.wrapping_add(1);
+        self.set_value_status(sum);
+        self.bus.write_byte(fetched.address, sum);
     }
 
     /// `INX` instruction.  Increment the value in the X index register by 1.
@@ -1006,6 +1069,40 @@ impl CPU {
         self.reg.set_status_flag(StatusFlag::Unused, true);
     }
 
+    /// `ROL` instruction.  Rotate the operand one bit to the left, wrapping the truncated bit
+    /// around to the least significant bit of the result.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Zero
+    fn instruction_rol(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let prior_carry = self.reg.get_status_flag(StatusFlag::Carry) as u8;
+        let rotated = (fetched.data << 1) | prior_carry;
+        self.set_value_status(rotated);
+        self.reg
+            .set_status_flag(StatusFlag::Carry, (fetched.data & 0x80) != 0);
+
+        self.accumulator_write_back(opcode, rotated, fetched.address);
+    }
+
+    /// `ROR` instruction.  Rotate the operand one bit to the right, wrapping the truncated bit
+    /// around to the most significant bit of the result.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Zero
+    fn instruction_ror(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let prior_carry = self.reg.get_status_flag(StatusFlag::Carry) as u8;
+        let rotated = (fetched.data >> 1) | (prior_carry << 7);
+        self.set_value_status(rotated);
+        self.reg
+            .set_status_flag(StatusFlag::Carry, (fetched.data & 1) == 1);
+
+        self.accumulator_write_back(opcode, rotated, fetched.address);
+    }
+
     /// `RTI` instruction.  Used to return from an interrupt, pops the status register and program
     /// counter from the stack.
     ///
@@ -1086,6 +1183,13 @@ impl CPU {
     /// Flags modified: *None*
     fn instruction_stx(&mut self, opcode: u8, fetched: &FetchedMemory) {
         self.bus.write_byte(fetched.address, self.reg.X);
+    }
+
+    /// `STY` instruction.  Stores the Y index register into memory.
+    ///
+    /// Flags modified: *None*
+    fn instruction_sty(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.bus.write_byte(fetched.address, self.reg.Y);
     }
 
     /// `TAX` instruction.  Transfer the value in the accumulator into index register X.
