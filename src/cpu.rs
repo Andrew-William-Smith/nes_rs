@@ -647,6 +647,17 @@ impl CPU {
         self.reg.set_status_flag(StatusFlag::Zero, value == 0);
     }
 
+    /// Write the specified value back to either the accumulator or memory, depending on the
+    /// addressing mode of the instruction.
+    fn accumulator_write_back(&mut self, opcode: u8, value: u8, address: u16) {
+        match INSTRUCTIONS[opcode as usize].addressing_mode {
+            AddressingMode::Accumulator => self.reg.A = value,
+            _ => {
+                self.bus.write_byte(address, value);
+            }
+        }
+    }
+
     /// `ADC` instruction.  Adds together the value in the accumulator, a value from memory, and the
     /// carry flag, allowing for chained addition of values greater than 8 bits.
     ///
@@ -940,12 +951,7 @@ impl CPU {
         let shifted = fetched.data >> 1;
         self.set_value_status(shifted);
 
-        match INSTRUCTIONS[opcode as usize].addressing_mode {
-            AddressingMode::Accumulator => self.reg.A = shifted,
-            _ => {
-                self.bus.write_byte(fetched.address, shifted);
-            }
-        }
+        self.accumulator_write_back(opcode, shifted, fetched.address);
     }
 
     /// `NOP` instruction.  As the name implies, performs no operation.
