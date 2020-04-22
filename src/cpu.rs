@@ -140,6 +140,8 @@ impl CPU {
             AddressingMode::Immediate => self.fetch_immediate(),
             AddressingMode::Absolute => self.fetch_absolute(),
             AddressingMode::ZeroPage => self.fetch_zero_page(),
+            AddressingMode::IndexedAbsoluteX => self.fetch_indexed_absolute(self.reg.X),
+            AddressingMode::IndexedAbsoluteY => self.fetch_indexed_absolute(self.reg.Y),
             AddressingMode::Implied => Some(FetchedMemory {
                 data: 0,
                 address: 0,
@@ -339,7 +341,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("CLC", 0x18, 2, Implied,          instruction_clc),
-    ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("ORA", 0x19, 4, IndexedAbsoluteY, instruction_ora),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
@@ -371,7 +373,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("SEC", 0x38, 2, Implied,          instruction_sec),
-    ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("AND", 0x39, 4, IndexedAbsoluteY, instruction_and),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
@@ -403,7 +405,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
-    ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("EOR", 0x59, 4, IndexedAbsoluteY, instruction_eor),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
@@ -435,7 +437,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("SEI", 0x78, 2, Implied,          instruction_sei),
-    ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("ADC", 0x79, 4, IndexedAbsoluteY, instruction_adc),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
@@ -467,7 +469,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("TYA", 0x98, 2, Implied,          instruction_tya),
-    ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("STA", 0x99, 5, IndexedAbsoluteY, instruction_sta),
     ins!("TXS", 0x9A, 2, Implied,          instruction_txs),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
@@ -499,7 +501,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("CLV", 0xB8, 2, Implied,          instruction_clv),
-    ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("LDA", 0xB9, 4, IndexedAbsoluteY, instruction_lda),
     ins!("TSX", 0xBA, 2, Implied,          instruction_tsx),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
@@ -531,7 +533,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("CLD", 0xD8, 2, Implied,          instruction_cld),
-    ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("CMP", 0xD9, 4, IndexedAbsoluteY, instruction_cmp),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
@@ -563,7 +565,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("SED", 0xF8, 2, Implied,          instruction_sed),
-    ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("SBC", 0xF9, 4, IndexedAbsoluteY, instruction_sbc),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
     ins!("UUU", 0x00, 1, Absolute,         unimplemented_instruction),
@@ -602,13 +604,37 @@ impl CPU {
     /// program counter as the low byte of the memory address to fetch and sets the high byte to 0.
     /// Thus, the range of accessible addresses is effectively limited to page 0.
     fn fetch_zero_page(&mut self) -> Option<FetchedMemory> {
-        let address = self.bus.read_byte(self.reg.PC)?;
+        let address = self.bus.read_byte(self.reg.PC)? as u16;
         self.reg.PC += 1;
-        let data = self.bus.read_byte(address as u16)?;
+        let data = self.bus.read_byte(address)?;
         Some(FetchedMemory {
             data,
-            address: address as u16,
+            address,
             additional_cycles: 0,
+        })
+    }
+
+    /// Fetch a byte from memory using indexed absolute addressing, which fetches two bytes at the
+    /// program counter and adds either the X or Y index register to this value to determine the
+    /// address at which to read.
+    fn fetch_indexed_absolute(&mut self, index_reg: u8) -> Option<FetchedMemory> {
+        // Compute the address from which to read
+        let absolute_address = self.bus.read_word(self.reg.PC)?;
+        self.reg.PC += 2;
+        let address = absolute_address.wrapping_add(index_reg as u16);
+
+        // A 1-cycle penalty is incurred if adding the index caused the page boundary to be crossed
+        let additional_cycles = if CPU::same_pages(absolute_address, address) {
+            0
+        } else {
+            1
+        };
+
+        let data = self.bus.read_byte(address)?;
+        Some(FetchedMemory {
+            data,
+            address,
+            additional_cycles,
         })
     }
 
