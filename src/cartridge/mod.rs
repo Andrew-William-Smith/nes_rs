@@ -1,3 +1,4 @@
+use super::cpu;
 use super::memory;
 use std::fs;
 use std::io::{BufReader, Read};
@@ -30,6 +31,9 @@ pub trait Cartridge: memory::Readable {
 
     /// Return whether the specified address maps to data in this cartridge.
     fn handles_address(&self, address: u16) -> bool;
+
+    /// Disassemble the PRG ROM to allow it to be viewed in the UI.
+    fn disassemble(&self) -> Vec<String>;
 }
 
 /// Initialise a cartridge with the ROM data stored in the specified file.
@@ -103,4 +107,41 @@ fn read_prg_rom(reader: &mut BufReader<fs::File>, pages: usize) -> Vec<u8> {
         .read(&mut rom)
         .expect("Failed attempting to read PRG rom.");
     rom
+}
+
+/// Return a textual representation of the instruction at the specified address, along with the
+/// number of bytes it occupied in the PRG ROM.
+#[rustfmt::skip]
+pub fn disassemble_instruction(cart: &impl Cartridge, address: u16) -> (String, u16) {
+    // Get the instruction definition
+    let opcode = cart.read_byte(address).unwrap();
+    let instruction = &cpu::INSTRUCTIONS[opcode as usize];
+
+    // Get the next byte and word for convenient operand encoding
+    let next_byte = cart.read_byte(address.wrapping_add(1)).unwrap_or_default();
+    let next_word = cart.read_word(address.wrapping_add(1)).unwrap_or_default();
+
+    // Format the operand
+    let (operand, extra_bytes) = match instruction.addressing_mode {
+        cpu::AddressingMode::Accumulator => (String::from("A"), 0),
+        cpu::AddressingMode::Immediate => (format!("#${:02X}", next_byte), 1),
+        cpu::AddressingMode::Absolute => (format!("${:04X}", next_word), 2),
+        cpu::AddressingMode::ZeroPage => (format!("${:02X}", next_byte), 1),
+        cpu::AddressingMode::IndexedZeroPageX => (format!("${:02X},X", next_byte), 1),
+        cpu::AddressingMode::IndexedZeroPageY => (format!("${:02X},Y", next_byte), 1),
+        cpu::AddressingMode::IndexedAbsoluteX => (format!("${:04X},X", next_word), 2),
+        cpu::AddressingMode::IndexedAbsoluteY => (format!("${:04X},Y", next_word), 2),
+        cpu::AddressingMode::Implied => (String::new(), 0),
+        cpu::AddressingMode::Relative => {
+            let target_address =
+                ((address as i32).wrapping_add(2)).wrapping_add(next_byte as i32) as u16;
+            (format!("${:04X} ({:+})", target_address, next_byte as i8), 1)
+        }
+        cpu::AddressingMode::IndexedIndirect => (format!("(${:02X},X)", next_byte), 1),
+        cpu::AddressingMode::IndirectIndexed => (format!("(${:02X}),Y", next_byte), 1),
+        cpu::AddressingMode::AbsoluteIndirect => (format!("(${:04X})", next_word), 2),
+    };
+
+    let assembly = format!("{:4X}: {:>4} {}", address, instruction.mnemonic, operand);
+    (assembly, 1 + extra_bytes)
 }

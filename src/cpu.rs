@@ -270,16 +270,16 @@ impl RegisterFile {
 }
 
 /// A single 2A03 instruction and the information necessary to decode it.
-struct Instruction {
-    mnemonic: &'static str,
+pub struct Instruction {
+    pub mnemonic: &'static str,
     opcode: u8,
     cycles: u8,
-    addressing_mode: AddressingMode,
+    pub addressing_mode: AddressingMode,
     operation: InstructionFn,
 }
 
 /// A memory addressing mode supported by the 2A03.
-enum AddressingMode {
+pub enum AddressingMode {
     Accumulator,
     Immediate,
     Absolute,
@@ -304,7 +304,7 @@ struct FetchedMemory {
 
 /// List of all instructions provided by the 2A03.
 #[rustfmt::skip]
-const INSTRUCTIONS: [Instruction; 256] = [
+pub const INSTRUCTIONS: [Instruction; 256] = [
     ins!("BRK",  0x00, 7, Implied,          instruction_brk),
     ins!("ORA",  0x01, 6, IndexedIndirect,  instruction_ora),
     ins!("*HLT", 0x02, 1, Implied,          instruction_undocumented_hlt),
@@ -1677,6 +1677,7 @@ impl ui::Visualisable for CPU {
 
         // Display subcomponents
         self.reg.display(ui);
+        self.bus.display(ui);
     }
 }
 

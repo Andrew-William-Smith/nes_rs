@@ -1,4 +1,5 @@
 use super::memory;
+use crate::cartridge;
 use crate::cartridge::Cartridge;
 
 const NROM_MAPPER_NUMBER: u16 = 0;
@@ -42,6 +43,18 @@ impl Cartridge for NromCartridge {
 
     fn handles_address(&self, address: u16) -> bool {
         address >= NROM_PRG_START && address <= NROM_PRG_END
+    }
+
+    fn disassemble(&self) -> Vec<String> {
+        let mut assembly = Vec::new();
+        let mut rom_address = NROM_PRG_START;
+        while rom_address >= NROM_PRG_START {
+            let (instruction, size) = cartridge::disassemble_instruction(self, rom_address);
+            assembly.push(instruction);
+            rom_address = rom_address.wrapping_add(size);
+        }
+
+        assembly
     }
 }
 

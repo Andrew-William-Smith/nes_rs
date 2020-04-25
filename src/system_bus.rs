@@ -1,6 +1,8 @@
 use super::cartridge;
 use super::memory;
 use super::memory::Readable;
+use super::ui;
+use imgui::{ChildWindow, Ui};
 
 /// Bytes of internal RAM available to the NES.
 const RAM_SIZE: usize = 0x0800;
@@ -90,6 +92,31 @@ impl memory::Writable for SystemBus {
         match address {
             0x0000..=RAM_END_ADDRESS => self.write_ram_byte(address, data),
             _ => false,
+        }
+    }
+}
+
+impl ui::Visualisable for SystemBus {
+    fn display(&mut self, ui: &Ui) {
+        use imgui::*;
+
+        // Disassembly window
+        if let Some(cartridge) = self.cartridge.as_ref() {
+            Window::new(im_str!("ROM Disassembly"))
+                .size([160.0, 300.0], Condition::Appearing)
+                .position([180.0, 10.0], Condition::Appearing)
+                .build(ui, || {
+                    ui.text(format!("Mapper number: {:03}", cartridge.mapper_number()));
+
+                    ChildWindow::new("Disassembled code")
+                        .size([0.0, 0.0])
+                        .border(true)
+                        .build(ui, || {
+                            for instruction in cartridge.disassemble().iter() {
+                                ui.text(format!("{}", instruction));
+                            }
+                        });
+                });
         }
     }
 }
