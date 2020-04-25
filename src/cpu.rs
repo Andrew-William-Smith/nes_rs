@@ -445,11 +445,11 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("*NOP", 0x80, 2, Immediate,        instruction_nop),
     ins!("STA",  0x81, 6, IndexedIndirect,  instruction_sta),
     ins!("*NOP", 0x82, 2, Immediate,        instruction_nop),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SAX", 0x83, 6, IndexedIndirect,  instruction_undocumented_sax),
     ins!("STY",  0x84, 3, ZeroPage,         instruction_sty),
     ins!("STA",  0x85, 3, ZeroPage,         instruction_sta),
     ins!("STX",  0x86, 3, ZeroPage,         instruction_stx),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SAX", 0x87, 3, ZeroPage,         instruction_undocumented_sax),
     ins!("DEY",  0x88, 2, Implied,          instruction_dey),
     ins!("*NOP", 0x89, 2, Immediate,        instruction_nop),
     ins!("TXA",  0x8A, 2, Implied,          instruction_txa),
@@ -457,7 +457,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("STY",  0x8C, 4, Absolute,         instruction_sty),
     ins!("STA",  0x8D, 4, Absolute,         instruction_sta),
     ins!("STX",  0x8E, 4, Absolute,         instruction_stx),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SAX", 0x8F, 4, Absolute,         instruction_undocumented_sax),
     ins!("BCC",  0x90, 2, Relative,         instruction_bcc),
     ins!("STA",  0x91, 6, IndirectIndexed,  instruction_sta),
     ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
@@ -465,7 +465,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("STY",  0x94, 4, IndexedZeroPageX, instruction_sty),
     ins!("STA",  0x95, 4, IndexedZeroPageX, instruction_sta),
     ins!("STX",  0x96, 4, IndexedZeroPageY, instruction_stx),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SAX", 0x97, 4, IndexedZeroPageY, instruction_undocumented_sax),
     ins!("TYA",  0x98, 2, Implied,          instruction_tya),
     ins!("STA",  0x99, 5, IndexedAbsoluteY, instruction_sta),
     ins!("TXS",  0x9A, 2, Implied,          instruction_txs),
@@ -477,11 +477,11 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("LDY",  0xA0, 2, Immediate,        instruction_ldy),
     ins!("LDA",  0xA1, 6, IndexedIndirect,  instruction_lda),
     ins!("LDX",  0xA2, 2, Immediate,        instruction_ldx),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*LAX", 0xA3, 6, IndexedIndirect,  instruction_undocumented_lax),
     ins!("LDY",  0xA4, 3, ZeroPage,         instruction_ldy),
     ins!("LDA",  0xA5, 3, ZeroPage,         instruction_lda),
     ins!("LDX",  0xA6, 3, ZeroPage,         instruction_ldx),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*LAX", 0xA7, 3, ZeroPage,         instruction_undocumented_lax),
     ins!("TAY",  0xA8, 2, Implied,          instruction_tay),
     ins!("LDA",  0xA9, 2, Immediate,        instruction_lda),
     ins!("TAX",  0xAA, 2, Implied,          instruction_tax),
@@ -489,15 +489,15 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("LDY",  0xAC, 4, Absolute,         instruction_ldy),
     ins!("LDA",  0xAD, 4, Absolute,         instruction_lda),
     ins!("LDX",  0xAE, 4, Absolute,         instruction_ldx),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*LAX", 0xAF, 4, Absolute,         instruction_undocumented_lax),
     ins!("BCS",  0xB0, 2, Relative,         instruction_bcs),
     ins!("LDA",  0xB1, 5, IndirectIndexed,  instruction_lda),
     ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*LAX", 0xB3, 5, IndirectIndexed,  instruction_undocumented_lax),
     ins!("LDY",  0xB4, 4, IndexedZeroPageX, instruction_ldy),
     ins!("LDA",  0xB5, 4, IndexedZeroPageX, instruction_lda),
     ins!("LDX",  0xB6, 4, IndexedZeroPageY, instruction_ldx),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*LAX", 0xB7, 4, IndexedZeroPageY, instruction_undocumented_lax),
     ins!("CLV",  0xB8, 2, Implied,          instruction_clv),
     ins!("LDA",  0xB9, 4, IndexedAbsoluteY, instruction_lda),
     ins!("TSX",  0xBA, 2, Implied,          instruction_tsx),
@@ -505,15 +505,15 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("LDY",  0xBC, 4, IndexedAbsoluteX, instruction_ldy),
     ins!("LDA",  0xBD, 4, IndexedAbsoluteX, instruction_lda),
     ins!("LDX",  0xBE, 4, IndexedAbsoluteY, instruction_ldx),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*LAX", 0xBF, 4, IndexedAbsoluteY, instruction_undocumented_lax),
     ins!("CPY",  0xC0, 2, Immediate,        instruction_cpy),
     ins!("CMP",  0xC1, 6, IndexedIndirect,  instruction_cmp),
     ins!("*NOP", 0xC2, 2, Immediate,        instruction_nop),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*DCP", 0xC3, 8, IndexedIndirect,  instruction_undocumented_dcp),
     ins!("CPY",  0xC4, 3, ZeroPage,         instruction_cpy),
     ins!("CMP",  0xC5, 3, ZeroPage,         instruction_cmp),
     ins!("DEC",  0xC6, 5, ZeroPage,         instruction_dec),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*DCP", 0xC7, 5, ZeroPage,         instruction_undocumented_dcp),
     ins!("INY",  0xC8, 2, Implied,          instruction_iny),
     ins!("CMP",  0xC9, 2, Immediate,        instruction_cmp),
     ins!("DEX",  0xCA, 2, Implied,          instruction_dex),
@@ -521,23 +521,23 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("CPY",  0xCC, 4, Absolute,         instruction_cpy),
     ins!("CMP",  0xCD, 4, Absolute,         instruction_cmp),
     ins!("DEC",  0xCE, 6, Absolute,         instruction_dec),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*DCP", 0xCF, 6, Absolute,         instruction_undocumented_dcp),
     ins!("BNE",  0xD0, 2, Relative,         instruction_bne),
     ins!("CMP",  0xD1, 5, IndirectIndexed,  instruction_cmp),
     ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*DCP", 0xD3, 8, IndirectIndexed,  instruction_undocumented_dcp),
     ins!("*NOP", 0xD4, 4, IndexedZeroPageX, instruction_nop),
     ins!("CMP",  0xD5, 4, IndexedZeroPageX, instruction_cmp),
     ins!("DEC",  0xD6, 6, IndexedZeroPageX, instruction_dec),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*DCP", 0xD7, 6, IndexedZeroPageX, instruction_undocumented_dcp),
     ins!("CLD",  0xD8, 2, Implied,          instruction_cld),
     ins!("CMP",  0xD9, 4, IndexedAbsoluteY, instruction_cmp),
     ins!("*NOP", 0xDA, 2, Implied,          instruction_nop),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*DCP", 0xDB, 7, IndexedAbsoluteY, instruction_undocumented_dcp),
     ins!("*NOP", 0xDC, 4, IndexedAbsoluteX, instruction_nop),
     ins!("CMP",  0xDD, 4, IndexedAbsoluteX, instruction_cmp),
     ins!("DEC",  0xDE, 7, IndexedAbsoluteX, instruction_dec),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*DCP", 0xDF, 7, IndexedAbsoluteX, instruction_undocumented_dcp),
     ins!("CPX",  0xE0, 2, Immediate,        instruction_cpx),
     ins!("SBC",  0xE1, 6, IndexedIndirect,  instruction_sbc),
     ins!("*NOP", 0xE2, 2, Immediate,        instruction_nop),
@@ -549,7 +549,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("INX",  0xE8, 2, Implied,          instruction_inx),
     ins!("SBC",  0xE9, 2, Immediate,        instruction_sbc),
     ins!("NOP",  0xEA, 2, Implied,          instruction_nop),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("SBC",  0xEB, 2, Immediate,        instruction_sbc),
     ins!("CPX",  0xEC, 4, Absolute,         instruction_cpx),
     ins!("SBC",  0xED, 4, Absolute,         instruction_sbc),
     ins!("INC",  0xEE, 6, Absolute,         instruction_inc),
@@ -978,6 +978,25 @@ impl CPU {
         self.perform_compare(self.reg.Y, fetched.data);
     }
 
+    /// Undocumented `DCP` instruction.  Decrements a value in memory by 1 (like `DEC`) and compares
+    /// it to the accumulator (like `CMP`).  This instruction is useful because it provides some
+    /// additional addressing modes over `DEC`, which has a fairly limited set of variants.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Zero
+    fn instruction_undocumented_dcp(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        // Perform the DEC portion
+        self.instruction_dec(opcode, &fetched);
+        // Perform the CMP portion
+        let new_value = self
+            .bus
+            .read_byte(fetched.address)
+            .expect("Internal error fetching updated memory for *DCP instruction.");
+        self.perform_compare(self.reg.A, new_value);
+    }
+
     /// `DEC` instruction.  Decrement a value in memory by 1.
     ///
     /// Flags modified:
@@ -1072,6 +1091,19 @@ impl CPU {
     fn instruction_jsr(&mut self, opcode: u8, fetched: &FetchedMemory) {
         self.stack_push_word(self.reg.PC - 1);
         self.reg.PC = fetched.address;
+    }
+
+    /// Undocumented `LAX` instruction.  Loads a value into both the accumulator and index register
+    /// X.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_undocumented_lax(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let data = fetched.data;
+        self.reg.A = data;
+        self.reg.X = data;
+        self.set_value_status(data);
     }
 
     /// `LDA` instruction.  Loads a value into the accumulator.
@@ -1230,6 +1262,15 @@ impl CPU {
     /// Flags modified: *None*
     fn instruction_rts(&mut self, opcode: u8, fetched: &FetchedMemory) {
         self.reg.PC = self.stack_pop_word() + 1;
+    }
+
+    /// Undocumented `SAX` instruction.  Performs an AND on the accumulator and index register X,
+    /// and store the result in memory.
+    ///
+    /// Flags modified: *None*
+    fn instruction_undocumented_sax(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let data = self.reg.A & self.reg.X;
+        self.bus.write_byte(fetched.address, data);
     }
 
     /// `SBC` instruction.  Subtracts a value from memory from the value in the accumulator,
