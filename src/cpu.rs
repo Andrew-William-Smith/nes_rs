@@ -317,9 +317,9 @@ struct FetchedMemory {
 /// List of all instructions provided by the 2A03.
 #[rustfmt::skip]
 const INSTRUCTIONS: [Instruction; 256] = [
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("BRK",  0x00, 7, Implied,          instruction_brk),
     ins!("ORA",  0x01, 6, IndexedIndirect,  instruction_ora),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0x02, 1, Implied,          instruction_undocumented_hlt),
     ins!("*SLO", 0x03, 8, IndexedIndirect,  instruction_undocumented_slo),
     ins!("*NOP", 0x04, 3, ZeroPage,         instruction_nop),
     ins!("ORA",  0x05, 3, ZeroPage,         instruction_ora),
@@ -328,14 +328,14 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("PHP",  0x08, 3, Implied,          instruction_php),
     ins!("ORA",  0x09, 2, Immediate,        instruction_ora),
     ins!("ASL",  0x0A, 2, Accumulator,      instruction_asl),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*ANC", 0x0B, 2, Immediate,        instruction_undocumented_anc),
     ins!("*NOP", 0x0C, 4, Absolute,         instruction_nop),
     ins!("ORA",  0x0D, 4, Absolute,         instruction_ora),
     ins!("ASL",  0x0E, 6, Absolute,         instruction_asl),
     ins!("*SLO", 0x0F, 6, Absolute,         instruction_undocumented_slo),
     ins!("BPL",  0x10, 2, Relative,         instruction_bpl),
     ins!("ORA",  0x11, 5, IndirectIndexed,  instruction_ora),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0x12, 1, Implied,          instruction_undocumented_hlt),
     ins!("*SLO", 0x13, 8, IndirectIndexed,  instruction_undocumented_slo),
     ins!("*NOP", 0x14, 4, IndexedZeroPageX, instruction_nop),
     ins!("ORA",  0x15, 4, IndexedZeroPageX, instruction_ora),
@@ -351,7 +351,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("*SLO", 0x1F, 7, IndexedAbsoluteX, instruction_undocumented_slo),
     ins!("JSR",  0x20, 6, Absolute,         instruction_jsr),
     ins!("AND",  0x21, 6, IndexedIndirect,  instruction_and),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0x22, 1, Implied,          instruction_undocumented_hlt),
     ins!("*RLA", 0x23, 8, IndexedIndirect,  instruction_undocumented_rla),
     ins!("BIT",  0x24, 3, ZeroPage,         instruction_bit),
     ins!("AND",  0x25, 3, ZeroPage,         instruction_and),
@@ -360,14 +360,14 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("PLP",  0x28, 4, Implied,          instruction_plp),
     ins!("AND",  0x29, 2, Immediate,        instruction_and),
     ins!("ROL",  0x2A, 2, Accumulator,      instruction_rol),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*ANC", 0x2B, 2, Immediate,        instruction_undocumented_anc),
     ins!("BIT",  0x2C, 4, Absolute,         instruction_bit),
     ins!("AND",  0x2D, 4, Absolute,         instruction_and),
     ins!("ROL",  0x2E, 6, Absolute,         instruction_rol),
     ins!("*RLA", 0x2F, 6, Absolute,         instruction_undocumented_rla),
     ins!("BMI",  0x30, 2, Relative,         instruction_bmi),
     ins!("AND",  0x31, 5, IndirectIndexed,  instruction_and),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0x32, 1, Implied,          instruction_undocumented_hlt),
     ins!("*RLA", 0x33, 8, IndirectIndexed,  instruction_undocumented_rla),
     ins!("*NOP", 0x34, 4, IndexedZeroPageX, instruction_nop),
     ins!("AND",  0x35, 4, IndexedZeroPageX, instruction_and),
@@ -383,7 +383,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("*RLA", 0x3F, 7, IndexedAbsoluteX, instruction_undocumented_rla),
     ins!("RTI",  0x40, 6, Implied,          instruction_rti),
     ins!("EOR",  0x41, 6, IndexedIndirect,  instruction_eor),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0x42, 1, Implied,          instruction_undocumented_hlt),
     ins!("*SRE", 0x43, 8, IndexedIndirect,  instruction_undocumented_sre),
     ins!("*NOP", 0x44, 3, ZeroPage,         instruction_nop),
     ins!("EOR",  0x45, 3, ZeroPage,         instruction_eor),
@@ -392,20 +392,20 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("PHA",  0x48, 3, Implied,          instruction_pha),
     ins!("EOR",  0x49, 2, Immediate,        instruction_eor),
     ins!("LSR",  0x4A, 2, Accumulator,      instruction_lsr),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*ALR", 0x4B, 2, Immediate,        instruction_undocumented_alr),
     ins!("JMP",  0x4C, 3, Absolute,         instruction_jmp),
     ins!("EOR",  0x4D, 4, Absolute,         instruction_eor),
     ins!("LSR",  0x4E, 6, Absolute,         instruction_lsr),
     ins!("*SRE", 0x4F, 6, Absolute,         instruction_undocumented_sre),
     ins!("BVC",  0x50, 2, Relative,         instruction_bvc),
     ins!("EOR",  0x51, 5, IndirectIndexed,  instruction_eor),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0x52, 1, Implied,          instruction_undocumented_hlt),
     ins!("*SRE", 0x53, 8, IndirectIndexed,  instruction_undocumented_sre),
     ins!("*NOP", 0x54, 4, IndexedZeroPageX, instruction_nop),
     ins!("EOR",  0x55, 4, IndexedZeroPageX, instruction_eor),
     ins!("LSR",  0x56, 6, IndexedZeroPageX, instruction_lsr),
     ins!("*SRE", 0x57, 6, IndexedZeroPageX, instruction_undocumented_sre),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("CLI",  0x58, 2, Implied,          instruction_cli),
     ins!("EOR",  0x59, 4, IndexedAbsoluteY, instruction_eor),
     ins!("*NOP", 0x5A, 2, Implied,          instruction_nop),
     ins!("*SRE", 0x5B, 7, IndexedAbsoluteY, instruction_undocumented_sre),
@@ -415,7 +415,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("*SRE", 0x5F, 7, IndexedAbsoluteX, instruction_undocumented_sre),
     ins!("RTS",  0x60, 6, Implied,          instruction_rts),
     ins!("ADC",  0x61, 6, IndexedIndirect,  instruction_adc),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0x62, 1, Implied,          instruction_undocumented_hlt),
     ins!("*RRA", 0x63, 8, IndexedIndirect,  instruction_undocumented_rra),
     ins!("*NOP", 0x64, 3, ZeroPage,         instruction_nop),
     ins!("ADC",  0x65, 3, ZeroPage,         instruction_adc),
@@ -424,14 +424,14 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("PLA",  0x68, 4, Implied,          instruction_pla),
     ins!("ADC",  0x69, 2, Immediate,        instruction_adc),
     ins!("ROR",  0x6A, 2, Accumulator,      instruction_ror),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*ARR", 0x6B, 2, Immediate,        instruction_undocumented_arr),
     ins!("JMP",  0x6C, 5, AbsoluteIndirect, instruction_jmp),
     ins!("ADC",  0x6D, 4, Absolute,         instruction_adc),
     ins!("ROR",  0x6E, 6, Absolute,         instruction_ror),
     ins!("*RRA", 0x6F, 6, Absolute,         instruction_undocumented_rra),
     ins!("BVS",  0x70, 2, Relative,         instruction_bvs),
     ins!("ADC",  0x71, 5, IndirectIndexed,  instruction_adc),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0x72, 1, Implied,          instruction_undocumented_hlt),
     ins!("*RRA", 0x73, 8, IndirectIndexed,  instruction_undocumented_rra),
     ins!("*NOP", 0x74, 4, IndexedZeroPageX, instruction_nop),
     ins!("ADC",  0x75, 4, IndexedZeroPageX, instruction_adc),
@@ -456,15 +456,15 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("DEY",  0x88, 2, Implied,          instruction_dey),
     ins!("*NOP", 0x89, 2, Immediate,        instruction_nop),
     ins!("TXA",  0x8A, 2, Implied,          instruction_txa),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*XAA", 0x8B, 1, Implied,          instruction_undocumented_hlt),
     ins!("STY",  0x8C, 4, Absolute,         instruction_sty),
     ins!("STA",  0x8D, 4, Absolute,         instruction_sta),
     ins!("STX",  0x8E, 4, Absolute,         instruction_stx),
     ins!("*SAX", 0x8F, 4, Absolute,         instruction_undocumented_sax),
     ins!("BCC",  0x90, 2, Relative,         instruction_bcc),
     ins!("STA",  0x91, 6, IndirectIndexed,  instruction_sta),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0x92, 1, Implied,          instruction_undocumented_hlt),
+    ins!("*AHX", 0x93, 6, IndirectIndexed,  instruction_undocumented_ahx),
     ins!("STY",  0x94, 4, IndexedZeroPageX, instruction_sty),
     ins!("STA",  0x95, 4, IndexedZeroPageX, instruction_sta),
     ins!("STX",  0x96, 4, IndexedZeroPageY, instruction_stx),
@@ -472,11 +472,11 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("TYA",  0x98, 2, Implied,          instruction_tya),
     ins!("STA",  0x99, 5, IndexedAbsoluteY, instruction_sta),
     ins!("TXS",  0x9A, 2, Implied,          instruction_txs),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*TAS", 0x9B, 5, IndexedAbsoluteY, instruction_undocumented_tas),
+    ins!("*SHY", 0x9C, 5, IndexedAbsoluteX, instruction_undocumented_shy),
     ins!("STA",  0x9D, 5, IndexedAbsoluteX, instruction_sta),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SHX", 0x9E, 5, IndexedAbsoluteY, instruction_undocumented_shx),
+    ins!("*AHX", 0x9F, 5, IndexedAbsoluteY, instruction_undocumented_ahx),
     ins!("LDY",  0xA0, 2, Immediate,        instruction_ldy),
     ins!("LDA",  0xA1, 6, IndexedIndirect,  instruction_lda),
     ins!("LDX",  0xA2, 2, Immediate,        instruction_ldx),
@@ -488,14 +488,14 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("TAY",  0xA8, 2, Implied,          instruction_tay),
     ins!("LDA",  0xA9, 2, Immediate,        instruction_lda),
     ins!("TAX",  0xAA, 2, Implied,          instruction_tax),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*ATX", 0xAB, 2, Immediate,        instruction_undocumented_hlt),
     ins!("LDY",  0xAC, 4, Absolute,         instruction_ldy),
     ins!("LDA",  0xAD, 4, Absolute,         instruction_lda),
     ins!("LDX",  0xAE, 4, Absolute,         instruction_ldx),
     ins!("*LAX", 0xAF, 4, Absolute,         instruction_undocumented_lax),
     ins!("BCS",  0xB0, 2, Relative,         instruction_bcs),
     ins!("LDA",  0xB1, 5, IndirectIndexed,  instruction_lda),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0xB2, 1, Implied,          instruction_undocumented_hlt),
     ins!("*LAX", 0xB3, 5, IndirectIndexed,  instruction_undocumented_lax),
     ins!("LDY",  0xB4, 4, IndexedZeroPageX, instruction_ldy),
     ins!("LDA",  0xB5, 4, IndexedZeroPageX, instruction_lda),
@@ -504,7 +504,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("CLV",  0xB8, 2, Implied,          instruction_clv),
     ins!("LDA",  0xB9, 4, IndexedAbsoluteY, instruction_lda),
     ins!("TSX",  0xBA, 2, Implied,          instruction_tsx),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*LAS", 0xBB, 4, IndexedAbsoluteY, instruction_undocumented_las),
     ins!("LDY",  0xBC, 4, IndexedAbsoluteX, instruction_ldy),
     ins!("LDA",  0xBD, 4, IndexedAbsoluteX, instruction_lda),
     ins!("LDX",  0xBE, 4, IndexedAbsoluteY, instruction_ldx),
@@ -520,14 +520,14 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("INY",  0xC8, 2, Implied,          instruction_iny),
     ins!("CMP",  0xC9, 2, Immediate,        instruction_cmp),
     ins!("DEX",  0xCA, 2, Implied,          instruction_dex),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*AXS", 0xCB, 2, Immediate,        instruction_undocumented_axs),
     ins!("CPY",  0xCC, 4, Absolute,         instruction_cpy),
     ins!("CMP",  0xCD, 4, Absolute,         instruction_cmp),
     ins!("DEC",  0xCE, 6, Absolute,         instruction_dec),
     ins!("*DCP", 0xCF, 6, Absolute,         instruction_undocumented_dcp),
     ins!("BNE",  0xD0, 2, Relative,         instruction_bne),
     ins!("CMP",  0xD1, 5, IndirectIndexed,  instruction_cmp),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0xD2, 1, Implied,          instruction_undocumented_hlt),
     ins!("*DCP", 0xD3, 8, IndirectIndexed,  instruction_undocumented_dcp),
     ins!("*NOP", 0xD4, 4, IndexedZeroPageX, instruction_nop),
     ins!("CMP",  0xD5, 4, IndexedZeroPageX, instruction_cmp),
@@ -559,7 +559,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("*ISB", 0xEF, 6, Absolute,         instruction_undocumented_isb),
     ins!("BEQ",  0xF0, 2, Relative,         instruction_beq),
     ins!("SBC",  0xF1, 5, IndirectIndexed,  instruction_sbc),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*HLT", 0xF2, 1, Implied,          instruction_undocumented_hlt),
     ins!("*ISB", 0xF3, 8, IndirectIndexed,  instruction_undocumented_isb),
     ins!("*NOP", 0xF4, 4, IndexedZeroPageX, instruction_nop),
     ins!("SBC",  0xF5, 4, IndexedZeroPageX, instruction_sbc),
@@ -815,6 +815,13 @@ impl CPU {
         );
     }
 
+    /// Compute the quantity `H` used in some undocumented instructions, which is the high byte of
+    /// the target address plus one, truncated to a byte.
+    #[inline]
+    fn undocumented_h(address: u16) -> u8 {
+        (address >> 8).wrapping_add(1) as u8
+    }
+
     /// `ADC` instruction.  Adds together the value in the accumulator, a value from memory, and the
     /// carry flag, allowing for chained addition of values greater than 8 bits.
     ///
@@ -842,6 +849,44 @@ impl CPU {
         self.reg.A = sum as u8;
     }
 
+    /// Undocumented `AHX` instruction.  Performs an `AND` of registers `A` and `X` and the high
+    /// byte of the target address in memory, plus 1 (a value often called `H`).  The result is
+    /// written back to memory, but the accumulator is not modified.
+    ///
+    /// Flags modified: *None*
+    fn instruction_undocumented_ahx(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let value = self.reg.A & self.reg.X & CPU::undocumented_h(fetched.address);
+        self.bus.write_byte(fetched.address, value);
+    }
+
+    /// Undocumented `ANC` instruction.  Performs an `AND` of an immediate byte and the accumulator,
+    /// and sets the carry flag if the result is negative.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Zero
+    fn instruction_undocumented_anc(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        // Perform the AND as normal
+        self.instruction_and(opcode, &fetched);
+        // Set carry flag
+        self.reg.set_status_flag(
+            StatusFlag::Carry,
+            self.reg.get_status_flag(StatusFlag::Negative),
+        );
+    }
+
+    /// Undocumented `ALR` instruction.  Performs an `AND` of an immediate value and the
+    /// accumulator, then `LSR`s the result one bit to the right.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Zero
+    fn instruction_undocumented_alr(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.combined_instruction(opcode, CPU::instruction_and, CPU::instruction_lsr, fetched);
+    }
+
     /// `AND` instruction.  Performs a bitwise AND operation on the value in the accumulator and a
     /// value from memory, storing the result in the accumulator.
     ///
@@ -852,6 +897,33 @@ impl CPU {
         let data = self.reg.A & fetched.data;
         self.set_value_status(data);
         self.reg.A = data;
+    }
+
+    /// Undocumented `ARR` instruction.  Performs an `AND` of an immediate value and the
+    /// accumulator, then rotates the result one bit to the right.  Also sets the carry and overflow
+    /// flags from bits 5 and 6 of the result as follows:
+    ///
+    /// | 5 | 6 | C | V |
+    /// |---|---|---|---|
+    /// | 0 | 0 | 0 | 0 |
+    /// | 0 | 1 | 1 | 1 |
+    /// | 1 | 0 | 0 | 1 |
+    /// | 1 | 1 | 1 | 0 |
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Overflow
+    /// - Zero
+    fn instruction_undocumented_arr(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        // Perform accumulator operations
+        self.combined_instruction(opcode, CPU::instruction_and, CPU::instruction_ror, fetched);
+
+        // Update flags
+        let bit_five = (self.reg.A >> 5) & 1;
+        let bit_six = (self.reg.A >> 6) & 1;
+        self.reg.set_status_flag(StatusFlag::Carry, bit_six != 0);
+        self.reg.set_status_flag(StatusFlag::Overflow, (bit_five ^ bit_six) != 0);
     }
 
     /// `ASL` instruction.  Perform an arithmetic shift one bit to the left on the operand.
@@ -869,6 +941,24 @@ impl CPU {
 
         self.accumulator_write_back(opcode, shifted, fetched.address);
         self.cycles_remaining -= fetched.additional_cycles as i8;
+    }
+
+    /// Undocumented `AXS` instruction.  Store the result of `A AND X` in the `X` register, then
+    /// subtract the immediate value from X.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Zero
+    fn instruction_undocumented_asx(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let intersect = (self.reg.A & self.reg.X);
+        let value = intersect.wrapping_sub(fetched.data);
+        self.reg.X = value;
+
+        self.set_value_status(value);
+        // Set Carry as in CMP
+        self.reg
+            .set_status_flag(StatusFlag::Carry, intersect >= value);
     }
 
     /// `BCC` instruction.  Branch to a relative memory address if the Carry flag is not set.
@@ -931,6 +1021,18 @@ impl CPU {
         self.conditional_branch(StatusFlag::Negative, false, fetched.address);
     }
 
+    /// `BRK` instruction.  Pushes the program counter and processor status register (`P`) to the
+    /// stack, then begins execution from the IRQ vector.
+    ///
+    /// Flags modified: *None*
+    fn instruction_brk(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        // Push processor state to stack
+        self.stack_push_word(self.reg.PC);
+        self.stack_push_byte(self.reg.P);
+        // Jump to IRQ vector
+        self.reg.PC = self.bus.read_irq_vector();
+    }
+
     /// `BVC` instruction.  Branch to a relative memory address if the Overflow flag is not set.
     ///
     /// Flags modified: *None*
@@ -959,7 +1061,14 @@ impl CPU {
         self.reg.set_status_flag(StatusFlag::DecimalMode, false);
     }
 
-    /// `CLD` instruction.  Sets the overflow flag low.
+    /// `CLI` instruction.  Sets the IRQ disable flag low.
+    ///
+    /// Flags modified: Decimal mode
+    fn instruction_cli(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.reg.set_status_flag(StatusFlag::IrqDisable, false);
+    }
+
+    /// `CLV` instruction.  Sets the overflow flag low.
     ///
     /// Flags modified: Overflow
     fn instruction_clv(&mut self, opcode: u8, fetched: &FetchedMemory) {
@@ -1069,6 +1178,11 @@ impl CPU {
         self.reg.A = data;
     }
 
+    /// Undocumented `HLT` pseudo-instruction.  Triggers a fault, halting execution.
+    fn instruction_undocumented_hlt(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.faulted = true;
+    }
+
     /// `INC` instruction.  Increment a value in memory by 1.
     ///
     /// Flags modified:
@@ -1129,6 +1243,23 @@ impl CPU {
     fn instruction_jsr(&mut self, opcode: u8, fetched: &FetchedMemory) {
         self.stack_push_word(self.reg.PC - 1);
         self.reg.PC = fetched.address;
+    }
+
+    /// Undocumented `LAS` instruction.  Performs an `AND` of a value in memory and the stack
+    /// pointer, then transfers the result to registers `A`, `X`, and `S`.
+    ///
+    /// Flags modified:
+    /// - Negative
+    /// - Zero
+    fn instruction_undocumented_las(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        // Compute value and set flags
+        let value = self.reg.S & fetched.data;
+        self.set_value_status(value);
+
+        // Transfer value to registers
+        self.reg.A = value;
+        self.reg.X = value;
+        self.reg.S = value;
     }
 
     /// Undocumented `LAX` instruction.  Loads a value into both the accumulator and index register
@@ -1382,6 +1513,24 @@ impl CPU {
         self.reg.set_status_flag(StatusFlag::IrqDisable, true);
     }
 
+    /// Undocumented `SHX` instruction.  `AND` register `X` with the high byte of the target address
+    /// of the argument plus 1, storing the result in memory.  The accumulator is not modified.
+    ///
+    /// Flags modified: *None*
+    fn instruction_undocumented_shx(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let value = self.reg.X & CPU::undocumented_h(fetched.address);
+        self.bus.write_byte(fetched.address, value);
+    }
+
+    /// Undocumented `SHY` instruction.  `AND` register `Y` with the high byte of the target address
+    /// of the argument plus 1, storing the result in memory.  The accumulator is not modified.
+    ///
+    /// Flags modified: *None*
+    fn instruction_undocumented_shy(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let value = self.reg.Y & CPU::undocumented_h(fetched.address);
+        self.bus.write_byte(fetched.address, value);
+    }
+
     /// Undocumented `SLO` instruction.  Perform a left shift (like `ASL`) on a value in memory,
     /// then performs an `ORA` on that shifted value and the accumulator.
     ///
@@ -1424,6 +1573,18 @@ impl CPU {
     /// Flags modified: *None*
     fn instruction_sty(&mut self, opcode: u8, fetched: &FetchedMemory) {
         self.bus.write_byte(fetched.address, self.reg.Y);
+    }
+
+    /// Undocumented `TAS` instruction.  Store `A AND X` in `S`, then `AND` `S` with the high byte
+    /// of the target address plus 1, storing the result in memory.  The accumulator is not
+    /// modified.
+    ///
+    /// Flags modified: *None*
+    fn instruction_undocumented_tas(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.reg.S = self.reg.A & self.reg.X;
+
+        let value = self.reg.S & CPU::undocumented_h(fetched.address);
+        self.bus.write_byte(fetched.address, value);
     }
 
     /// `TAX` instruction.  Transfer the value in the accumulator into index register X.
@@ -1476,12 +1637,6 @@ impl CPU {
     /// - Zero
     fn instruction_tya(&mut self, opcode: u8, fetched: &FetchedMemory) {
         swap_registers!(self, self.reg.Y, self.reg.A);
-    }
-
-    /// Halt on invalid instruction.
-    fn unimplemented_instruction(&mut self, opcode: u8, fetched: &FetchedMemory) {
-        println!("Invalid instruction with opcode ${:02X}", opcode);
-        self.faulted = true;
     }
 }
 

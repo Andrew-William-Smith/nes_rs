@@ -11,6 +11,8 @@ const RAM_END_ADDRESS: u16 = 0x1FFF;
 
 /// Address (in cartridge memory) of the reset vector.
 const RESET_VECTOR_ADDRESS: u16 = 0xFFFC;
+/// Address (in cartridge memory) of the IRQ/`BRK` vector.
+const IRQ_VECTOR_ADDRESS: u16 = 0xFFFE;
 
 /// The system bus of the NES, handling interaction between the CPU, PPU, APU, cartridge ROM, and
 /// other memories.
@@ -51,9 +53,15 @@ impl SystemBus {
     }
 
     /// Return the reset vector, the address to which the program counter is set when the CPU
-    /// resets.  The reset vector is read from the cartridge at address $FFFC.
+    /// resets.  The reset vector is read from the cartridge at address `$FFFC`.
     pub fn read_reset_vector(&self) -> u16 {
         self.read_word(RESET_VECTOR_ADDRESS).unwrap()
+    }
+
+    /// Return the IRQ/`BRK` vector, the address to which the program counter is set when the CPU
+    /// receives an interrupt.  The IRQ vector is read from the cartridge at address `$FFFE`.
+    pub fn read_irq_vector(&self) -> u16 {
+        self.read_word(IRQ_VECTOR_ADDRESS).unwrap()
     }
 }
 
