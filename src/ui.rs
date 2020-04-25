@@ -8,8 +8,7 @@ use glium::{Display, Surface};
 use imgui::{Context, Ui};
 use imgui_glium_renderer::Renderer;
 use imgui_winit_support::{HiDpiMode, WinitPlatform};
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 /// Factor into which to divide the hi-DPI scale factor for font scaling
@@ -128,11 +127,11 @@ impl NesUi {
     }
 
     /// Run the main loop for this UI instance.  Does not terminate.
-    pub fn run_loop(cpu: Rc<RefCell<cpu::CPU>>) {
+    pub fn run_loop(cpu: Arc<Mutex<cpu::CPU>>) {
         let interface = NesUi::new();
         // Begin UI main loop
         interface.main_loop(move |_, ui| {
-            cpu.borrow_mut().display(ui);
+            cpu.lock().unwrap().display(ui);
         });
     }
 }

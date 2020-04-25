@@ -1,6 +1,6 @@
-use std::cell::RefCell;
-use std::env;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use std::{env, thread};
 
 mod cartridge;
 mod cpu;
@@ -14,16 +14,20 @@ fn main() {
         // Initialise the CPU and read in the ROM
         let mut nes_cpu = cpu::CPU::new();
         nes_cpu.load_rom(&rom_file);
+        let cpu_cell = Arc::new(Mutex::new(nes_cpu));
 
-        // Quickly run the ROM contents
-        // TODO: This should run in a separate thread and actually be clocked
-        while nes_cpu.is_running() {
-            nes_cpu.step_cycle();
-        }
+        // Kick off emulation
+        let emu_cell = cpu_cell.clone();
+        let emu_thread = thread::spawn(move || loop {
+            let mut cpu = emu_cell.lock().unwrap();
+            if cpu.is_running() {
+                cpu.step_cycle();
+            }
+        });
 
-        // Kick off UI rendering
-        let cpu_cell = Rc::new(RefCell::new(nes_cpu));
+        // Run UI thread and wait for emulation to exit
         ui::NesUi::run_loop(cpu_cell);
+        emu_thread.join().unwrap();
     } else {
         println!("Please specify a ROM file to run.");
     }

@@ -60,7 +60,7 @@ impl CPU {
             bus: system_bus::SystemBus::new(),
             cycles_remaining: 0,
             cycle: 0,
-            running: true,
+            running: false,
             faulted: false,
         }
     }
@@ -100,18 +100,6 @@ impl CPU {
 
     /// Kick off execution of the instruction pointed to by the current program counter.
     fn execute_instruction(&mut self) {
-        // Print CPU status in nestest log format
-        println!(
-            "{:04X} A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} CYC:{}",
-            self.reg.PC,
-            self.reg.A,
-            self.reg.X,
-            self.reg.Y,
-            self.reg.P & 0xEF,
-            self.reg.S,
-            self.cycle + 7
-        );
-
         // Ensure that the program counter points to a valid memory address
         if let Some(opcode) = self.bus.read_byte(self.reg.PC) {
             // Decode the instruction
@@ -520,7 +508,7 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("INY",  0xC8, 2, Implied,          instruction_iny),
     ins!("CMP",  0xC9, 2, Immediate,        instruction_cmp),
     ins!("DEX",  0xCA, 2, Implied,          instruction_dex),
-    ins!("*AXS", 0xCB, 2, Immediate,        instruction_undocumented_axs),
+    ins!("*AXS", 0xCB, 1, Implied,          instruction_undocumented_axs),
     ins!("CPY",  0xCC, 4, Absolute,         instruction_cpy),
     ins!("CMP",  0xCD, 4, Absolute,         instruction_cmp),
     ins!("DEC",  0xCE, 6, Absolute,         instruction_dec),
@@ -923,7 +911,8 @@ impl CPU {
         let bit_five = (self.reg.A >> 5) & 1;
         let bit_six = (self.reg.A >> 6) & 1;
         self.reg.set_status_flag(StatusFlag::Carry, bit_six != 0);
-        self.reg.set_status_flag(StatusFlag::Overflow, (bit_five ^ bit_six) != 0);
+        self.reg
+            .set_status_flag(StatusFlag::Overflow, (bit_five ^ bit_six) != 0);
     }
 
     /// `ASL` instruction.  Perform an arithmetic shift one bit to the left on the operand.
@@ -950,8 +939,8 @@ impl CPU {
     /// - Carry
     /// - Negative
     /// - Zero
-    fn instruction_undocumented_asx(&mut self, opcode: u8, fetched: &FetchedMemory) {
-        let intersect = (self.reg.A & self.reg.X);
+    fn instruction_undocumented_axs(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        let intersect = self.reg.A & self.reg.X;
         let value = intersect.wrapping_sub(fetched.data);
         self.reg.X = value;
 

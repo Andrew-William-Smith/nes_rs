@@ -20,7 +20,7 @@ pub struct SystemBus {
     /// Internal RAM.
     ram: Vec<u8>,
     /// The current cartridge connected to the system.
-    cartridge: Option<Box<dyn cartridge::Cartridge>>,
+    cartridge: Option<Box<dyn cartridge::Cartridge + Send + Sync>>,
 }
 
 impl SystemBus {
