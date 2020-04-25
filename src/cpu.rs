@@ -416,11 +416,11 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("RTS",  0x60, 6, Implied,          instruction_rts),
     ins!("ADC",  0x61, 6, IndexedIndirect,  instruction_adc),
     ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*RRA", 0x63, 8, IndexedIndirect,  instruction_undocumented_rra),
     ins!("*NOP", 0x64, 3, ZeroPage,         instruction_nop),
     ins!("ADC",  0x65, 3, ZeroPage,         instruction_adc),
     ins!("ROR",  0x66, 5, ZeroPage,         instruction_ror),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*RRA", 0x67, 5, ZeroPage,         instruction_undocumented_rra),
     ins!("PLA",  0x68, 4, Implied,          instruction_pla),
     ins!("ADC",  0x69, 2, Immediate,        instruction_adc),
     ins!("ROR",  0x6A, 2, Accumulator,      instruction_ror),
@@ -428,23 +428,23 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("JMP",  0x6C, 5, AbsoluteIndirect, instruction_jmp),
     ins!("ADC",  0x6D, 4, Absolute,         instruction_adc),
     ins!("ROR",  0x6E, 6, Absolute,         instruction_ror),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*RRA", 0x6F, 6, Absolute,         instruction_undocumented_rra),
     ins!("BVS",  0x70, 2, Relative,         instruction_bvs),
     ins!("ADC",  0x71, 5, IndirectIndexed,  instruction_adc),
     ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*RRA", 0x73, 8, IndirectIndexed,  instruction_undocumented_rra),
     ins!("*NOP", 0x74, 4, IndexedZeroPageX, instruction_nop),
     ins!("ADC",  0x75, 4, IndexedZeroPageX, instruction_adc),
     ins!("ROR",  0x76, 6, IndexedZeroPageX, instruction_ror),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*RRA", 0x77, 6, IndexedZeroPageX, instruction_undocumented_rra),
     ins!("SEI",  0x78, 2, Implied,          instruction_sei),
     ins!("ADC",  0x79, 4, IndexedAbsoluteY, instruction_adc),
     ins!("*NOP", 0x7A, 2, Implied,          instruction_nop),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*RRA", 0x7B, 7, IndexedAbsoluteY, instruction_undocumented_rra),
     ins!("*NOP", 0x7C, 4, IndexedAbsoluteX, instruction_nop),
     ins!("ADC",  0x7D, 4, IndexedAbsoluteX, instruction_adc),
     ins!("ROR",  0x7E, 7, IndexedAbsoluteX, instruction_ror),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*RRA", 0x7F, 7, IndexedAbsoluteX, instruction_undocumented_rra),
     ins!("*NOP", 0x80, 2, Immediate,        instruction_nop),
     ins!("STA",  0x81, 6, IndexedIndirect,  instruction_sta),
     ins!("*NOP", 0x82, 2, Immediate,        instruction_nop),
@@ -1255,6 +1255,18 @@ impl CPU {
     /// - Zero
     fn instruction_undocumented_rla(&mut self, opcode: u8, fetched: &FetchedMemory) {
         self.combined_instruction(opcode, CPU::instruction_rol, CPU::instruction_and, fetched);
+    }
+
+    /// Undocumented `RRA` instruction.  Perform a `ROR` of a memory value one bit to the right,
+    /// then `ADC` the result with the value in the accumulator.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Overflow
+    /// - Zero
+    fn instruction_undocumented_rra(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.combined_instruction(opcode, CPU::instruction_ror, CPU::instruction_adc, fetched);
     }
 
     /// `ROL` instruction.  Rotate the operand one bit to the left, wrapping the truncated bit
