@@ -45,12 +45,13 @@ impl Cartridge for NromCartridge {
         address >= NROM_PRG_START && address <= NROM_PRG_END
     }
 
-    fn disassemble(&self) -> Vec<String> {
+    fn disassemble(&self) -> Vec<(String, String)> {
         let mut assembly = Vec::new();
         let mut rom_address = NROM_PRG_START;
         while rom_address >= NROM_PRG_START {
-            let (instruction, size) = cartridge::disassemble_instruction(self, rom_address);
-            assembly.push(instruction);
+            let (instruction, bytecode, size) =
+                cartridge::disassemble_instruction(self, rom_address);
+            assembly.push((format!("{:4X}: {:8}", rom_address, bytecode), instruction));
             rom_address = rom_address.wrapping_add(size);
         }
 

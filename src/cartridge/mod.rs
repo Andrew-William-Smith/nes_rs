@@ -33,7 +33,7 @@ pub trait Cartridge: memory::Readable {
     fn handles_address(&self, address: u16) -> bool;
 
     /// Disassemble the PRG ROM to allow it to be viewed in the UI.
-    fn disassemble(&self) -> Vec<String>;
+    fn disassemble(&self) -> Vec<(String, String)>;
 }
 
 /// Initialise a cartridge with the ROM data stored in the specified file.
@@ -109,10 +109,10 @@ fn read_prg_rom(reader: &mut BufReader<fs::File>, pages: usize) -> Vec<u8> {
     rom
 }
 
-/// Return a textual representation of the instruction at the specified address, along with the
-/// number of bytes it occupied in the PRG ROM.
+/// Return a textual representation of the instruction at the specified address, along with its
+/// bytecode and the number of bytes it occupied in the PRG ROM.
 #[rustfmt::skip]
-pub fn disassemble_instruction(cart: &impl Cartridge, address: u16) -> (String, u16) {
+pub fn disassemble_instruction(cart: &impl Cartridge, address: u16) -> (String, String, u16) {
     // Get the instruction definition
     let opcode = cart.read_byte(address).unwrap();
     let instruction = &cpu::INSTRUCTIONS[opcode as usize];
@@ -135,13 +135,20 @@ pub fn disassemble_instruction(cart: &impl Cartridge, address: u16) -> (String, 
         cpu::AddressingMode::Relative => {
             let target_address =
                 ((address as i32).wrapping_add(2)).wrapping_add(next_byte as i32) as u16;
-            (format!("${:04X} ({:+})", target_address, next_byte as i8), 1)
+            (format!("${:04X}", target_address), 1)
         }
         cpu::AddressingMode::IndexedIndirect => (format!("(${:02X},X)", next_byte), 1),
         cpu::AddressingMode::IndirectIndexed => (format!("(${:02X}),Y", next_byte), 1),
         cpu::AddressingMode::AbsoluteIndirect => (format!("(${:04X})", next_word), 2),
     };
 
-    let assembly = format!("{:4X}: {:>4} {}", address, instruction.mnemonic, operand);
-    (assembly, 1 + extra_bytes)
+    // Format bytecode
+    let bytecode = match extra_bytes {
+        0 => format!("{:02X}", opcode),
+        1 => format!("{:02X} {:02X}", opcode, next_byte),
+        _ => format!("{:02X} {:02X} {:02X}", opcode, next_word as u8, (next_word >> 8) as u8),
+    };
+
+    let assembly = format!("{:>4} {}", instruction.mnemonic, operand);
+    (assembly, bytecode, 1 + extra_bytes)
 }

@@ -103,7 +103,7 @@ impl ui::Visualisable for SystemBus {
         // Disassembly window
         if let Some(cartridge) = self.cartridge.as_ref() {
             Window::new(im_str!("ROM Disassembly"))
-                .size([160.0, 300.0], Condition::Appearing)
+                .size([280.0, 555.0], Condition::Appearing)
                 .position([180.0, 10.0], Condition::Appearing)
                 .build(ui, || {
                     ui.text(format!("Mapper number: {:03}", cartridge.mapper_number()));
@@ -112,8 +112,12 @@ impl ui::Visualisable for SystemBus {
                         .size([0.0, 0.0])
                         .border(true)
                         .build(ui, || {
-                            for instruction in cartridge.disassemble().iter() {
-                                ui.text(format!("{}", instruction));
+                            ui.columns(2, im_str!("Code columns"), true);
+                            for (address, instruction) in cartridge.disassemble().iter() {
+                                ui.text(address);
+                                ui.next_column();
+                                ui.text(instruction);
+                                ui.next_column();
                             }
                         });
                 });
