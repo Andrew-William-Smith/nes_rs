@@ -29,6 +29,9 @@ macro_rules! swap_registers {
     };
 }
 
+/// A function that implements a CPU instruction;
+type InstructionFn = fn(&mut CPU, u8, &FetchedMemory);
+
 /// The value by which the 2A03 stack is offset from its actual contents.
 const STACK_OFFSET: u16 = 0x100;
 
@@ -284,7 +287,7 @@ struct Instruction {
     opcode: u8,
     cycles: u8,
     addressing_mode: AddressingMode,
-    operation: fn(&mut CPU, u8, &FetchedMemory),
+    operation: InstructionFn,
 }
 
 /// A memory addressing mode supported by the 2A03.
@@ -381,11 +384,11 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("RTI",  0x40, 6, Implied,          instruction_rti),
     ins!("EOR",  0x41, 6, IndexedIndirect,  instruction_eor),
     ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SRE", 0x43, 8, IndexedIndirect,  instruction_undocumented_sre),
     ins!("*NOP", 0x44, 3, ZeroPage,         instruction_nop),
     ins!("EOR",  0x45, 3, ZeroPage,         instruction_eor),
     ins!("LSR",  0x46, 5, ZeroPage,         instruction_lsr),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SRE", 0x47, 5, ZeroPage,         instruction_undocumented_sre),
     ins!("PHA",  0x48, 3, Implied,          instruction_pha),
     ins!("EOR",  0x49, 2, Immediate,        instruction_eor),
     ins!("LSR",  0x4A, 2, Accumulator,      instruction_lsr),
@@ -393,23 +396,23 @@ const INSTRUCTIONS: [Instruction; 256] = [
     ins!("JMP",  0x4C, 3, Absolute,         instruction_jmp),
     ins!("EOR",  0x4D, 4, Absolute,         instruction_eor),
     ins!("LSR",  0x4E, 6, Absolute,         instruction_lsr),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SRE", 0x4F, 6, Absolute,         instruction_undocumented_sre),
     ins!("BVC",  0x50, 2, Relative,         instruction_bvc),
     ins!("EOR",  0x51, 5, IndirectIndexed,  instruction_eor),
     ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SRE", 0x53, 8, IndirectIndexed,  instruction_undocumented_sre),
     ins!("*NOP", 0x54, 4, IndexedZeroPageX, instruction_nop),
     ins!("EOR",  0x55, 4, IndexedZeroPageX, instruction_eor),
     ins!("LSR",  0x56, 6, IndexedZeroPageX, instruction_lsr),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SRE", 0x57, 6, IndexedZeroPageX, instruction_undocumented_sre),
     ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
     ins!("EOR",  0x59, 4, IndexedAbsoluteY, instruction_eor),
     ins!("*NOP", 0x5A, 2, Implied,          instruction_nop),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SRE", 0x5B, 7, IndexedAbsoluteY, instruction_undocumented_sre),
     ins!("*NOP", 0x5C, 4, IndexedAbsoluteX, instruction_nop),
     ins!("EOR",  0x5D, 4, IndexedAbsoluteX, instruction_eor),
     ins!("LSR",  0x5E, 7, IndexedAbsoluteX, instruction_lsr),
-    ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
+    ins!("*SRE", 0x5F, 7, IndexedAbsoluteX, instruction_undocumented_sre),
     ins!("RTS",  0x60, 6, Implied,          instruction_rts),
     ins!("ADC",  0x61, 6, IndexedIndirect,  instruction_adc),
     ins!("UUU",  0x00, 1, Absolute,         unimplemented_instruction),
@@ -786,6 +789,32 @@ impl CPU {
         }
     }
 
+    /// Perform an undocumented "combined instruction": that is, an instruction that essentially
+    /// mimics two separate instructions running independently with the same operands.
+    fn combined_instruction(
+        &mut self,
+        opcode: u8,
+        first: InstructionFn,
+        second: InstructionFn,
+        fetched: &FetchedMemory,
+    ) {
+        // Run the first instruction
+        (first)(self, opcode, &fetched);
+
+        // Fetch memory to feed into second instruction
+        let new_value = self.bus.read_byte(fetched.address).unwrap();
+        // Run the second instruction with the result of the first
+        (second)(
+            self,
+            opcode,
+            &FetchedMemory {
+                data: new_value,
+                address: fetched.address,
+                additional_cycles: 0,
+            },
+        );
+    }
+
     /// `ADC` instruction.  Adds together the value in the accumulator, a value from memory, and the
     /// carry flag, allowing for chained addition of values greater than 8 bits.
     ///
@@ -1083,20 +1112,7 @@ impl CPU {
     /// - Overflow
     /// - Zero
     fn instruction_undocumented_isb(&mut self, opcode: u8, fetched: &FetchedMemory) {
-        // INC portion
-        self.instruction_inc(opcode, &fetched);
-
-        // Fetch the incremented value
-        let new_value = self.bus.read_byte(fetched.address).unwrap();
-        // Perform the subtraction using the incremented value
-        self.instruction_sbc(
-            opcode,
-            &FetchedMemory {
-                data: new_value,
-                address: fetched.address,
-                additional_cycles: 0,
-            },
-        );
+        self.combined_instruction(opcode, CPU::instruction_inc, CPU::instruction_sbc, fetched);
     }
 
     /// `JMP` instruction.  Unconditionally branches to the specified memory address.
@@ -1238,18 +1254,7 @@ impl CPU {
     /// - Negative
     /// - Zero
     fn instruction_undocumented_rla(&mut self, opcode: u8, fetched: &FetchedMemory) {
-        self.instruction_rol(opcode, &fetched);
-
-        // Execute AND portion with new memory value
-        let new_value = self.bus.read_byte(fetched.address).unwrap();
-        self.instruction_and(
-            opcode,
-            &FetchedMemory {
-                data: new_value,
-                address: fetched.address,
-                additional_cycles: 0,
-            },
-        );
+        self.combined_instruction(opcode, CPU::instruction_rol, CPU::instruction_and, fetched);
     }
 
     /// `ROL` instruction.  Rotate the operand one bit to the left, wrapping the truncated bit
@@ -1373,18 +1378,18 @@ impl CPU {
     /// - Negative
     /// - Zero
     fn instruction_undocumented_slo(&mut self, opcode: u8, fetched: &FetchedMemory) {
-        self.instruction_asl(opcode, &fetched);
+        self.combined_instruction(opcode, CPU::instruction_asl, CPU::instruction_ora, fetched);
+    }
 
-        // Fetch the shifted value and execute ORA
-        let new_value = self.bus.read_byte(fetched.address).unwrap();
-        self.instruction_ora(
-            opcode,
-            &FetchedMemory {
-                data: new_value,
-                address: fetched.address,
-                additional_cycles: 0,
-            },
-        );
+    /// Undocumented `SRE` instruction.  Shifts a memory value rightward one bit (like `LSR`), then
+    /// performs an `EOR` on that shifted value and the accumulator.
+    ///
+    /// Flags modified:
+    /// - Carry
+    /// - Negative
+    /// - Zero
+    fn instruction_undocumented_sre(&mut self, opcode: u8, fetched: &FetchedMemory) {
+        self.combined_instruction(opcode, CPU::instruction_lsr, CPU::instruction_eor, fetched);
     }
 
     /// `STA` instruction.  Stores the accumulator into memory.
