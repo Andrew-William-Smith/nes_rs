@@ -3,6 +3,7 @@ use super::memory;
 use super::memory::Readable;
 use super::ui;
 use imgui::{ChildWindow, Ui};
+use std::collections::BTreeMap;
 
 /// Bytes of internal RAM available to the NES.
 const RAM_SIZE: usize = 0x0800;
@@ -16,6 +17,17 @@ const RESET_VECTOR_ADDRESS: u16 = 0xFFFC;
 /// Address (in cartridge memory) of the IRQ/`BRK` vector.
 const IRQ_VECTOR_ADDRESS: u16 = 0xFFFE;
 
+/// A visualisation of the current state of the system bus.
+#[derive(Default)]
+struct SystemBusVisualisation {
+    /// Whether the ROM view should file the program counter.
+    follow_pc: bool,
+    /// The last program counter set by the CPU.
+    program_counter: u16,
+    /// The disassembled code for the ROM currently being run.
+    disassembly: BTreeMap<u16, (String, String)>,
+}
+
 /// The system bus of the NES, handling interaction between the CPU, PPU, APU, cartridge ROM, and
 /// other memories.
 pub struct SystemBus {
@@ -23,6 +35,8 @@ pub struct SystemBus {
     ram: Vec<u8>,
     /// The current cartridge connected to the system.
     cartridge: Option<Box<dyn cartridge::Cartridge + Send + Sync>>,
+    /// Visualisation state.
+    vis: SystemBusVisualisation,
 }
 
 impl SystemBus {
@@ -31,6 +45,7 @@ impl SystemBus {
         SystemBus {
             ram: vec![0; RAM_SIZE],
             cartridge: None,
+            vis: SystemBusVisualisation::default(),
         }
     }
 
@@ -64,6 +79,12 @@ impl SystemBus {
     /// receives an interrupt.  The IRQ vector is read from the cartridge at address `$FFFE`.
     pub fn read_irq_vector(&self) -> u16 {
         self.read_word(IRQ_VECTOR_ADDRESS).unwrap()
+    }
+
+    /// Set the program counter known to the system bus.  Required for the "Follow PC" feature of
+    /// the disassembly window.
+    pub fn set_program_counter(&mut self, pc: u16) {
+        self.vis.program_counter = pc;
     }
 }
 
@@ -102,22 +123,37 @@ impl ui::Visualisable for SystemBus {
 
         // Disassembly window
         if let Some(cartridge) = self.cartridge.as_ref() {
+            let vis = &mut self.vis;
+            let mut found_pc = false;
+
+            // Disassemble only if necessary
+            if vis.disassembly.len() == 0 {
+                vis.disassembly = cartridge.disassemble();
+            }
+
             Window::new(im_str!("ROM Disassembly"))
                 .size([280.0, 555.0], Condition::Appearing)
                 .position([180.0, 10.0], Condition::Appearing)
                 .build(ui, || {
                     ui.text(format!("Mapper number: {:03}", cartridge.mapper_number()));
+                    ui.checkbox(im_str!("Follow PC"), &mut vis.follow_pc);
 
                     ChildWindow::new("Disassembled code")
                         .size([0.0, 0.0])
                         .border(true)
                         .build(ui, || {
                             ui.columns(2, im_str!("Code columns"), true);
-                            for (address, instruction) in cartridge.disassemble().iter() {
-                                ui.text(address);
+                            for (address, (bytecode, instruction)) in vis.disassembly.iter() {
+                                ui.text(bytecode);
                                 ui.next_column();
                                 ui.text(instruction);
                                 ui.next_column();
+
+                                // Set scroll position if following PC
+                                if vis.follow_pc && !found_pc && vis.program_counter == *address {
+                                    ui.set_scroll_here_y();
+                                    found_pc = true;
+                                }
                             }
                         });
                 });

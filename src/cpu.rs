@@ -72,6 +72,7 @@ impl CPU {
         // TODO: Restore after nestest passes
         // self.reg.PC = self.bus.read_reset_vector();
         self.reg.PC = 0xC000;
+        self.bus.set_program_counter(self.reg.PC);
     }
 
     /// Return whether this CPU is in a state in which it can run continuously: that is, the user
@@ -85,6 +86,7 @@ impl CPU {
     /// operation will be performed.
     pub fn step_cycle(&mut self) {
         if self.cycles_remaining == 0 {
+            self.bus.set_program_counter(self.reg.PC);
             self.execute_instruction();
         }
         self.cycles_remaining -= 1;
@@ -1633,7 +1635,7 @@ impl ui::Visualisable for CPU {
     fn display(&mut self, ui: &Ui) {
         use imgui::*;
         Window::new(im_str!("CPU Status"))
-            .size([160.0, 170.0], Condition::Appearing)
+            .size([160.0, 190.0], Condition::Appearing)
             .position([10.0, 205.0], Condition::Appearing)
             .resizable(false)
             .build(ui, || {
@@ -1673,6 +1675,9 @@ impl ui::Visualisable for CPU {
                         }
                     }
                 }
+
+                ui.separator();
+                ui.text(format!("Framerate: {:.1} FPS", ui.io().framerate));
             });
 
         // Display subcomponents

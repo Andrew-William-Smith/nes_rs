@@ -1,5 +1,6 @@
 use super::cpu;
 use super::memory;
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::{BufReader, Read};
 
@@ -33,7 +34,7 @@ pub trait Cartridge: memory::Readable {
     fn handles_address(&self, address: u16) -> bool;
 
     /// Disassemble the PRG ROM to allow it to be viewed in the UI.
-    fn disassemble(&self) -> Vec<(String, String)>;
+    fn disassemble(&self) -> BTreeMap<u16, (String, String)>;
 }
 
 /// Initialise a cartridge with the ROM data stored in the specified file.
