@@ -95,9 +95,11 @@ impl CPU {
 
     /// Perform the current operation until it has finished executing.
     fn step_instruction(&mut self) {
-        self.execute_instruction();
-        self.cycle += self.cycles_remaining as u64;
-        self.cycles_remaining = 0;
+        // Imitation of a do-while loop
+        while {
+            self.step_cycle();
+            self.cycles_remaining > 0
+        } {}
     }
 
     /// Kick off execution of the instruction pointed to by the current program counter.

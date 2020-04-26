@@ -11,11 +11,13 @@ use imgui_winit_support::{HiDpiMode, WinitPlatform};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-/// Factor into which to divide the hi-DPI scale factor for font scaling
+/// Factor into which to divide the hi-DPI scale factor for font scaling.
 const HI_DPI_NUMERATOR: f32 = 2.0;
 
-/// Grayscale colour used for the window background
+/// Grayscale colour used for the window background.
 const BACKGROUND_COLOUR: f32 = 0.15;
+/// Orange colour used to highlight UI elements.
+pub const HIGHLIGHT_COLOUR: [f32; 4] = [1.0, 0.65, 0.0, 1.0];
 
 /// A single instance of the `nes_rs` user interface.
 pub struct NesUi {

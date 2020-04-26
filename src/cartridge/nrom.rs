@@ -46,10 +46,19 @@ impl Cartridge for NromCartridge {
         address >= NROM_PRG_START && address <= NROM_PRG_END
     }
 
-    fn disassemble(&self) -> BTreeMap<u16, (String, String)> {
+    fn disassemble(&self, program_counter: u16) -> BTreeMap<u16, (String, String)> {
         let mut assembly = BTreeMap::new();
         let mut rom_address = NROM_PRG_START;
+        let mut found_pc = false;
+
         while rom_address >= NROM_PRG_START {
+            // Clamp the disassembled address to the program counter
+            if !found_pc && (rom_address >= program_counter) {
+                found_pc = true;
+                rom_address = program_counter;
+            }
+
+            // Add the disassembled instruction to the map
             let (instruction, bytecode, size) =
                 cartridge::disassemble_instruction(self, rom_address);
             assembly.insert(

@@ -33,8 +33,9 @@ pub trait Cartridge: memory::Readable {
     /// Return whether the specified address maps to data in this cartridge.
     fn handles_address(&self, address: u16) -> bool;
 
-    /// Disassemble the PRG ROM to allow it to be viewed in the UI.
-    fn disassemble(&self) -> BTreeMap<u16, (String, String)>;
+    /// Disassemble the PRG ROM to allow it to be viewed in the UI.  Attempt to synchronise the
+    /// disassembly to the specified program counter.
+    fn disassemble(&self, program_counter: u16) -> BTreeMap<u16, (String, String)>;
 }
 
 /// Initialise a cartridge with the ROM data stored in the specified file.

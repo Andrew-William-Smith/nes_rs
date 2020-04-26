@@ -127,8 +127,8 @@ impl ui::Visualisable for SystemBus {
             let mut found_pc = false;
 
             // Disassemble only if necessary
-            if vis.disassembly.len() == 0 {
-                vis.disassembly = cartridge.disassemble();
+            if vis.disassembly.len() == 0 || !vis.disassembly.contains_key(&vis.program_counter) {
+                vis.disassembly = cartridge.disassemble(vis.program_counter);
             }
 
             Window::new(im_str!("ROM Disassembly"))
@@ -144,15 +144,24 @@ impl ui::Visualisable for SystemBus {
                         .build(ui, || {
                             ui.columns(2, im_str!("Code columns"), true);
                             for (address, (bytecode, instruction)) in vis.disassembly.iter() {
-                                ui.text(bytecode);
-                                ui.next_column();
-                                ui.text(instruction);
-                                ui.next_column();
+                                if vis.program_counter == *address {
+                                    // If this is the instruction at the PC, draw it in orange
+                                    ui.text_colored(ui::HIGHLIGHT_COLOUR, bytecode);
+                                    ui.next_column();
+                                    ui.text_colored(ui::HIGHLIGHT_COLOUR, instruction);
+                                    ui.next_column();
 
-                                // Set scroll position if following PC
-                                if vis.follow_pc && !found_pc && vis.program_counter == *address {
-                                    ui.set_scroll_here_y();
+                                    // Set scroll position if following the PC
+                                    if vis.follow_pc && !found_pc {
+                                        ui.set_scroll_here_y();
+                                    }
                                     found_pc = true;
+                                } else {
+                                    // Otherwise, just draw it in the default white
+                                    ui.text(bytecode);
+                                    ui.next_column();
+                                    ui.text(instruction);
+                                    ui.next_column();
                                 }
                             }
                         });
