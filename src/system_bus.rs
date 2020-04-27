@@ -2,7 +2,10 @@ use super::cartridge;
 use super::memory;
 use super::memory::Readable;
 use super::ui;
-use imgui::{ChildWindow, Ui};
+use imgui::sys::{
+    ImGuiListClipper_End, ImGuiListClipper_ImGuiListClipper, ImGuiListClipper_destroy,
+};
+use imgui::Ui;
 use std::collections::BTreeMap;
 
 /// Bytes of internal RAM available to the NES.
@@ -124,7 +127,6 @@ impl ui::Visualisable for SystemBus {
         // Disassembly window
         if let Some(cartridge) = self.cartridge.as_ref() {
             let vis = &mut self.vis;
-            let mut found_pc = false;
 
             // Disassemble only if necessary
             if vis.disassembly.len() == 0 || !vis.disassembly.contains_key(&vis.program_counter) {
@@ -141,21 +143,40 @@ impl ui::Visualisable for SystemBus {
                     ChildWindow::new("Disassembled code")
                         .size([0.0, 0.0])
                         .border(true)
-                        .build(ui, || {
+                        .build(ui, || unsafe {
+                            // Use a manual text clipper for performance
+                            let clipper = ImGuiListClipper_ImGuiListClipper(
+                                vis.disassembly.len() as i32,
+                                ui.text_line_height_with_spacing(),
+                            );
                             ui.columns(2, im_str!("Code columns"), true);
-                            for (address, (bytecode, instruction)) in vis.disassembly.iter() {
+
+                            let num_elements =
+                                ((*clipper).DisplayEnd - (*clipper).DisplayStart) as usize;
+                            let disassembled_instructions = if vis.follow_pc {
+                                // If following the PC, skip until the current address
+                                vis.disassembly
+                                    .iter()
+                                    .skip_while(|(address, _)| **address != vis.program_counter)
+                                    .take(num_elements)
+                                    .collect::<Vec<(&u16, &(String, String))>>()
+                            // TODO: Set scroll position
+                            } else {
+                                // Otherwise, display based on scroll position
+                                vis.disassembly
+                                    .iter()
+                                    .skip((*clipper).DisplayStart as usize)
+                                    .take(num_elements)
+                                    .collect::<Vec<(&u16, &(String, String))>>()
+                            };
+
+                            for (address, (bytecode, instruction)) in disassembled_instructions {
                                 if vis.program_counter == *address {
                                     // If this is the instruction at the PC, draw it in orange
                                     ui.text_colored(ui::HIGHLIGHT_COLOUR, bytecode);
                                     ui.next_column();
                                     ui.text_colored(ui::HIGHLIGHT_COLOUR, instruction);
                                     ui.next_column();
-
-                                    // Set scroll position if following the PC
-                                    if vis.follow_pc && !found_pc {
-                                        ui.set_scroll_here_y();
-                                    }
-                                    found_pc = true;
                                 } else {
                                     // Otherwise, just draw it in the default white
                                     ui.text(bytecode);
@@ -164,6 +185,9 @@ impl ui::Visualisable for SystemBus {
                                     ui.next_column();
                                 }
                             }
+
+                            ImGuiListClipper_End(clipper);
+                            ImGuiListClipper_destroy(clipper);
                         });
                 });
         }
